@@ -3452,10 +3452,10 @@ async function enviarAhora(){
   const incHist  = document.getElementById('now-hist')?.checked  ? '1':'0';
   const filtroProy = document.getElementById('rep-proj')?.value || '';
 
-  // Capturar HTML de la vista previa actual para enviarlo al Apps Script
-  const htmlB64 = capturarHTMLPreview();
+  // Capturar valores clave del PDF preview (URL corta, no base64)
+  const kd = capturarDatosPDF();
 
-  const params = new URLSearchParams({action:'sendReport',email,cc,asunto,msg,proyecto:'PROJ-202606-1',filtroProy,incKpi,incGantt,incTabla,incFotos,incHist,htmlContent:htmlB64});
+  const params = new URLSearchParams({action:'sendReport',email,cc,asunto,msg,proyecto:'PROJ-202606-1',filtroProy,incKpi,incGantt,incTabla,incFotos,incHist,...kd});
   sendJSONP(
     webAppUrl+'?'+params.toString(),
     (res) => {
@@ -3476,41 +3476,27 @@ async function enviarAhora(){
   );
 }
 
-function capturarHTMLPreview() {
-  try {
-    const previewEl = document.getElementById('pdf-preview');
-    if (!previewEl) return '';
-    const clone = previewEl.cloneNode(true);
-    // Reemplazar la imagen base64 del logo con un div simple para reducir tamaño
-    const logoImg = clone.querySelector('img');
-    if (logoImg) {
-      const div = document.createElement('div');
-      div.style.cssText = 'width:48px;height:48px;background:#1565c0;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:10px;text-align:center;line-height:1.2;flex-shrink:0';
-      div.textContent = 'SOLMIT';
-      logoImg.parentNode.replaceChild(div, logoImg);
-    }
-    const css = `body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:20px;color:#333;font-size:11px}
-.pdf-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:10px;border-bottom:3px solid #1565c0;margin-bottom:10px}
-.pdf-title{font-size:13px;font-weight:700;color:#1565c0}.pdf-sub{font-size:9.5px;color:#777;line-height:1.6}
-.pdf-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}
-.pdf-kpi{border:1px solid #e5e5e5;border-radius:4px;padding:7px;text-align:center}
-.pdf-kv{font-size:17px;font-weight:700;color:#1565c0}.pdf-kl{font-size:8.5px;color:#999;margin-top:2px}
-.pdf-sh{font-size:9.5px;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 5px;padding-bottom:2px;border-bottom:1px solid #e5e5e5}
-.pdf-tbl{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:8px}
-.pdf-tbl th{background:#f0f4ff;color:#555;padding:4px 7px;font-weight:600;border-bottom:1px solid #e5e5e5;text-align:left}
-.pdf-tbl td{padding:4px 7px;border-bottom:1px solid #f5f5f5}
-.pdf-ok{background:#e8f5e9;color:#2e7d32;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
-.pdf-warn{background:#fff8e1;color:#e65100;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
-.pdf-pend{background:#f5f5f5;color:#888;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
-.pdf-gantt-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:9.5px}
-.pdf-gantt-l{width:140px;flex-shrink:0;color:#555}
-.pdf-gantt-w{flex:1;height:8px;background:#f0f0f0;border-radius:4px;position:relative;overflow:hidden}
-.pdf-gantt-p{position:absolute;top:0;height:100%;border-radius:4px;background:#e8f5e9}
-.pdf-gantt-r{position:absolute;top:0;height:100%;border-radius:4px}
-.pdf-foot{margin-top:20px;padding-top:8px;border-top:1px solid #e5e5e5;font-size:9px;color:#aaa;text-align:center}`;
-    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${css}</style></head><body>${clone.innerHTML}</body></html>`;
-    return btoa(unescape(encodeURIComponent(fullHtml)));
-  } catch(e) { return ''; }
+function capturarDatosPDF() {
+  // Extrae los valores clave del PDF preview como params cortos (no base64)
+  const g = id => document.getElementById(id);
+  const txt = id => (g(id)?.textContent || '').trim();
+  const wid = id => (g(id)?.style.width || '0%').replace('%','');
+  const clr = id => (g(id)?.style.background || '');
+  return {
+    kpiAv:    txt('pdf-av'),
+    kpiTerm:  txt('pdf-term'),
+    kpiAtras: txt('pdf-atras'),
+    kpiBloq:  txt('pdf-bloq'),
+    g1: wid('pdf-r-1'), g1c: clr('pdf-r-1'),
+    g2: wid('pdf-r-2'), g2c: clr('pdf-r-2'),
+    g3: wid('pdf-r-3'), g3c: clr('pdf-r-3'),
+    r1: txt('pdf-tr-1'), s1: txt('pdf-ts-1'),
+    r2: txt('pdf-tr-2'), s2: txt('pdf-ts-2'),
+    r3: txt('pdf-tr-3'), s3: txt('pdf-ts-3'),
+    fotosHTML: g('pdf-fotos-body')?.innerHTML || '',
+    histHTML:  g('pdf-hist-body')?.innerHTML  || '',
+    fechaTxt:  txt('pdf-date-txt'),
+  };
 }
 
 function scrollToPDF(){
@@ -3778,7 +3764,7 @@ function schedCheckAndExecute() {
       incTabla: c.incTabla !== false ? '1' : '0',
       incFotos: c.incFotos !== false ? '1' : '0',
       incHist:  c.incHist  ? '1' : '0',
-      htmlContent: capturarHTMLPreview(),
+      ...capturarDatosPDF(),
     });
 
     sendJSONP(
