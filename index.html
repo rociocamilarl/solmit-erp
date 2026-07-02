@@ -2973,13 +2973,22 @@ function renderKPIs() {
     try{ return new Date(r.Fecha).toISOString().slice(0,10)===todayStr; }catch(e){ return false; }
   }).length;
 
-  // Avance planificado según días laborales transcurridos (40 días desde 10/06/2026)
-  let diasTrans = 0;
-  let d = new Date('2026-06-10');
+  // Avance planificado ponderado por horas, según el rango ini/fin propio de cada actividad
   const hoyMidP = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  while(d < hoyMidP){ if(d.getDay()!==0&&d.getDay()!==6) diasTrans++; d.setDate(d.getDate()+1); }
-  diasTrans = Math.min(diasTrans, 40);
-  const avPlan = Math.round((diasTrans/40)*100);
+  const diaLaboralAFechaK = n => {
+    let f = new Date('2026-06-10'), w = 0;
+    while (w < (n||1) - 1) { f.setDate(f.getDate()+1); if (f.getDay()!==0 && f.getDay()!==6) w++; }
+    return f;
+  };
+  const planHorasK = GANTT_ACTS.reduce((s,a) => {
+    const fIni = diaLaboralAFechaK(a.ini), fFin = diaLaboralAFechaK(a.fin);
+    let pct;
+    if (hoyMidP < fIni) pct = 0;
+    else if (hoyMidP >= fFin) pct = 100;
+    else pct = ((hoyMidP - fIni) / (fFin - fIni)) * 100;
+    return s + (a.horas||a.cantidad||1) * (pct/100);
+  }, 0);
+  const avPlan = totalHoras ? Math.round((planHorasK/totalHoras)*100) : 0;
 
   // Atrasadas: fin planificado < hoy con av<100, O inicio pasado con av===0
   const esAtrasadaK = a => {
