@@ -225,7 +225,7 @@ textarea{resize:vertical;min-height:68px}
 .pdf-tbl td{padding:4px 7px;border-bottom:1px solid #f5f5f5;color:#222}
 .pdf-ok{background:#e8f5e9;color:#2e7d32;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
 .pdf-warn{background:#fff8e1;color:#b8860b;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
-.pdf-pend{background:#f5f5f5;color:#757575;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
+.pdf-pend{background:#e3f2fd;color:#1565c0;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
 .pdf-gantt-row{display:flex;align-items:center;gap:5px;margin-bottom:4px;font-size:9px;color:#555}
 .pdf-gantt-l{width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pdf-gantt-w{flex:1;height:8px;background:#f0f0f0;border-radius:3px;position:relative}
@@ -3080,8 +3080,8 @@ function renderAvance(data) {
     const plan = parseFloat(cat.avance_plan)||0;
     totalReal += real; totalPlan += plan;
     const color = real>=100?'var(--green)':cat.atrasada?'var(--yellow)':'var(--blue)';
-    // Mismos 4 colores que la Línea de tiempo de Carta Gantt (verde/amarillo/azul), en tono oscuro para contrastar en fondo blanco
-    const colorPDF = real>=100 ? '#2e7d32' : cat.atrasada ? '#b8860b' : real>0 ? '#1565c0' : '#9e9e9e';
+    // Mismos 3 colores que usa Carta Gantt (verde/amarillo/azul; Pendiente y En curso comparten el azul)
+    const colorPDF = real>=100 ? '#2e7d32' : cat.atrasada ? '#b8860b' : '#1565c0';
     const st = real>=100?'<span class="b bg">✓ OK</span>':cat.atrasada?'<span class="b by">Con atraso</span>':real>0?'<span class="b bb">En curso</span>':'<span class="b bgr">Pendiente</span>';
     const i = cat.id;
     // Dashboard barras
@@ -3107,7 +3107,7 @@ function renderAvance(data) {
     const pr = document.getElementById('pdf-r-'+i);
     if(pr){ pr.style.width=real+'%'; pr.style.background=colorPDF; }
     const pval = document.getElementById('pdf-v-'+i);
-    if(pval){ pval.textContent=real+'%'; pval.style.color=real>0?colorPDF:'#757575'; pval.style.fontWeight='700'; }
+    if(pval){ pval.textContent=real+'%'; pval.style.color=colorPDF; pval.style.fontWeight='700'; }
     const ptr = document.getElementById('pdf-tr-'+i);
     if(ptr){ ptr.textContent=real+'%'; ptr.style.color=colorPDF; ptr.style.fontWeight='700'; }
     const pts = document.getElementById('pdf-ts-'+i);
