@@ -3266,6 +3266,7 @@ function aprobarRep(id){
   renderHist();
   renderAvanceLocal();
   renderKPIs();
+  renderGanttSeccion();
   actualizarBadgePendientes();
   mostrarToast('Reporte aprobado — suma al avance del proyecto','green');
 }
@@ -3279,6 +3280,7 @@ function rechazarRep(id){
   renderHist();
   renderAvanceLocal();
   renderKPIs();
+  renderGanttSeccion();
   actualizarBadgePendientes();
   mostrarToast('Reporte rechazado — no suma al avance','red');
 }
