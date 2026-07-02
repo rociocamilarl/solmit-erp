@@ -2733,7 +2733,6 @@ function diaLaboral(n) {
 }
 
 function avanceRealAct(desc, avFijo) {
-  if (avFijo !== undefined) return avFijo;
   const kw = desc.toLowerCase().replace(/[áéíóúñ]/g, c => ({á:'a',é:'e',í:'i',ó:'o',ú:'u',ñ:'n'}[c]||c));
   // Solo reportes aprobados contribuyen al avance
   const aprobados = localReports.filter(r => r.estado === 'aprobado');
@@ -2741,8 +2740,10 @@ function avanceRealAct(desc, avFijo) {
     const a = (r.Actividad||'').toLowerCase().replace(/[áéíóúñ]/g, c => ({á:'a',é:'e',í:'i',ó:'o',ú:'u',ñ:'n'}[c]||c));
     return kw.split(' ').filter(w=>w.length>4).some(w => a.includes(w));
   });
-  if (!matches.length) return -1;
-  return Math.round(matches.reduce((s,r)=>s+parseFloat(r.Avance||0),0)/matches.length);
+  // Reportes aprobados tienen prioridad sobre el valor importado del Excel
+  if (matches.length) return Math.round(matches.reduce((s,r)=>s+parseFloat(r.Avance||0),0)/matches.length);
+  if (avFijo !== undefined) return avFijo;
+  return -1;
 }
 
 function getListaFiltrada() {
