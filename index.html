@@ -3037,23 +3037,11 @@ function renderKPIs() {
 }
 
 function renderAvanceLocal() {
-  // Solo reportes aprobados contribuyen al avance
-  const aprobados = localReports.filter(r => r.estado === 'aprobado');
   const sumas = {1:{sumH:0,horas:0}, 2:{sumH:0,horas:0}, 3:{sumH:0,horas:0}};
   GANTT_ACTS.forEach(a => {
-    // avFijo siempre cuenta (actividades confirmadas 100%)
-    // Sin avFijo: usa solo reportes aprobados para el fuzzy match
-    let av;
-    if (a.avFijo !== undefined) {
-      av = a.avFijo;
-    } else {
-      const kw = a.desc.toLowerCase().replace(/[áéíóúñ]/g,c=>({á:'a',é:'e',í:'i',ó:'o',ú:'u',ñ:'n'}[c]||c));
-      const matches = aprobados.filter(r=>{
-        const act=(r.Actividad||'').toLowerCase().replace(/[áéíóúñ]/g,c=>({á:'a',é:'e',í:'i',ó:'o',ú:'u',ñ:'n'}[c]||c));
-        return kw.split(' ').filter(w=>w.length>4).some(w=>act.includes(w));
-      });
-      av = matches.length ? Math.round(matches.reduce((s,r)=>s+parseFloat(r.Avance||0),0)/matches.length) : 0;
-    }
+    // Misma función que usa Carta Gantt/Dashboard KPIs, para que ambas pantallas coincidan
+    const avRaw = avanceRealAct(a.desc, a.avFijo);
+    const av = avRaw < 0 ? 0 : avRaw; // pendiente cuenta como 0% para el promedio ponderado
     const cat = clasificarActividad(a.desc);
     sumas[cat].sumH += av * (a.horas||a.cantidad||1);
     sumas[cat].horas += (a.horas||a.cantidad||1);
