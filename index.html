@@ -3163,9 +3163,11 @@ function processSync(json, status){
           _avanceEditado: local?._avanceEditado || false
         };
       });
-      // Fusionar: Sheets tiene precedencia, pero preservar estado de validación local
+      // Fusionar: Sheets tiene precedencia. Solo se preservan reportes locales que
+      // genuinamente aún no se han subido (pendientes de sync), no los que ya
+      // estaban en Sheets y fueron borrados ahí (esos deben desaparecer también aquí).
       const sheetsIds = new Set(normalized.map(r=>r.ID_Reporte));
-      const localOnly = localReports.filter(r=>!sheetsIds.has(r.ID_Reporte));
+      const localOnly = localReports.filter(r=>!sheetsIds.has(r.ID_Reporte) && r.Fuente==='ERP' && !r._synced);
       localReports = [...normalized, ...localOnly];
       localStorage.setItem(REPORTS_KEY, JSON.stringify(localReports));
       const now = new Date().toLocaleTimeString('es-CL');
