@@ -3080,6 +3080,8 @@ function renderAvance(data) {
     const plan = parseFloat(cat.avance_plan)||0;
     totalReal += real; totalPlan += plan;
     const color = real>=100?'var(--green)':cat.atrasada?'var(--yellow)':'var(--blue)';
+    // Colores propios para el PDF (fondo blanco): los CSS vars están pensadas para fondo oscuro y se ven muy claras aquí
+    const colorPDF = real>=100?'#2e7d32':cat.atrasada?'#e65100':'#1565c0';
     const st = real>=100?'<span class="b bg">✓ OK</span>':cat.atrasada?'<span class="b by">Con atraso</span>':real>0?'<span class="b bb">En curso</span>':'<span class="b bgr">Pendiente</span>';
     const i = cat.id;
     // Dashboard barras
@@ -3103,11 +3105,13 @@ function renderAvance(data) {
     if(gts) gts.innerHTML=st;
     // PDF
     const pr = document.getElementById('pdf-r-'+i);
-    if(pr){ pr.style.width=real+'%'; pr.style.background=color; }
+    if(pr){ pr.style.width=real+'%'; pr.style.background=colorPDF; }
     const pval = document.getElementById('pdf-v-'+i);
-    if(pval){ pval.textContent=real+'%'; pval.style.color=real>0?'#333':'#999'; }
+    if(pval){ pval.textContent=real+'%'; pval.style.color=real>0?colorPDF:'#757575'; pval.style.fontWeight='700'; }
     const ptr = document.getElementById('pdf-tr-'+i);
-    if(ptr) ptr.textContent=real+'%';
+    if(ptr){ ptr.textContent=real+'%'; ptr.style.color=colorPDF; ptr.style.fontWeight='700'; }
+    const pts = document.getElementById('pdf-ts-'+i);
+    if(pts){ pts.className = real>=100?'pdf-ok':cat.atrasada?'pdf-warn':'pdf-pend'; pts.textContent = real>=100?'Terminado':cat.atrasada?'Atrasado':real>0?'En curso':'Pendiente'; }
   });
   // KPI avance general
   const avg = data.length ? Math.round(totalReal/data.length) : 0;
