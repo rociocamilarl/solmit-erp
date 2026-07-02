@@ -3141,21 +3141,28 @@ function processSync(json, status){
   try{
     if(json.status === 'ok' && Array.isArray(json.data)){
       // Normalizar columnas: soporta tanto Respuestas de formulario como Reportes_Terreno
-      const normalized = json.data.map((r,i) => ({
-        ID_Reporte:   r.ID_Reporte || r[''] || ('FORM-'+Date.now()+'-'+i),
-        Trabajador:   r.Trabajador || r['Tu nombre completo'] || '',
-        Proyecto:     normalizarProyecto(r.Proyecto || r['Proyecto en el que trabajas'] || ''),
-        Zona:         r.Zona       || r['Zona de trabajo'] || '',
-        Actividad:    r.Actividad  || r['Actividad realizada'] || r['ID_Actividad'] || '',
-        Fecha:        r.Fecha      || r['Fecha_Report'] || r['Marca temporal'] || '',
-        Avance:       String(parseFloat(r.Avance || r['Avance_Repo'] || r['% de avance de esta actividad hoy'] || 0) * (parseFloat(r['% de avance de esta actividad hoy']) <= 10 ? 10 : 1)),
-        Observaciones:r.Observaciones || r['Observación'] || r['Observaciones (opcional)'] || '',
-        FotoURL:      r.FotoURL    || r['Foto_URL'] || r['Sube Fotos del trabajo'] || '',
-        Bloqueo:      r.Bloqueo    || r['Problema_Blo'] || r['¿Hay algún problema o bloqueo?'] || '',
-        Fuente:       r.Fuente || 'Google Forms',
-        // Preservar estado de validación si ya existe localmente
-        estado:       (localReports.find(lr=>lr.ID_Reporte===(r.ID_Reporte||('FORM-'+Date.now()+'-'+0)))?.estado) || r.estado || 'pendiente'
-      }));
+      const normalized = json.data.map((r,i) => {
+        const idRep = r.ID_Reporte || r[''] || ('FORM-'+Date.now()+'-'+i);
+        const local = localReports.find(lr=>lr.ID_Reporte===idRep);
+        const avanceSheets = String(parseFloat(r.Avance || r['Avance_Repo'] || r['% de avance de esta actividad hoy'] || 0) * (parseFloat(r['% de avance de esta actividad hoy']) <= 10 ? 10 : 1));
+        return {
+          ID_Reporte:   idRep,
+          Trabajador:   r.Trabajador || r['Tu nombre completo'] || '',
+          Proyecto:     normalizarProyecto(r.Proyecto || r['Proyecto en el que trabajas'] || ''),
+          Zona:         r.Zona       || r['Zona de trabajo'] || '',
+          Actividad:    r.Actividad  || r['Actividad realizada'] || r['ID_Actividad'] || '',
+          Fecha:        r.Fecha      || r['Fecha_Report'] || r['Marca temporal'] || '',
+          // Si el avance fue editado manualmente en el ERP, esa edición tiene prioridad sobre lo que traiga Sheets
+          Avance:       local && local._avanceEditado ? String(local.Avance) : avanceSheets,
+          Observaciones:r.Observaciones || r['Observación'] || r['Observaciones (opcional)'] || '',
+          FotoURL:      r.FotoURL    || r['Foto_URL'] || r['Sube Fotos del trabajo'] || '',
+          Bloqueo:      r.Bloqueo    || r['Problema_Blo'] || r['¿Hay algún problema o bloqueo?'] || '',
+          Fuente:       r.Fuente || 'Google Forms',
+          // Preservar estado de validación si ya existe localmente
+          estado:       local?.estado || r.estado || 'pendiente',
+          _avanceEditado: local?._avanceEditado || false
+        };
+      });
       // Fusionar: Sheets tiene precedencia, pero preservar estado de validación local
       const sheetsIds = new Set(normalized.map(r=>r.ID_Reporte));
       const localOnly = localReports.filter(r=>!sheetsIds.has(r.ID_Reporte));
@@ -3302,9 +3309,21 @@ function sincronizarEstado(id, estado){
 function editarAvance(id, val){
   const idx = localReports.findIndex(r=>r.ID_Reporte===id);
   if(idx<0) return;
-  localReports[idx].Avance = Math.min(100, Math.max(0, parseInt(val)||0));
+  const nuevoAvance = Math.min(100, Math.max(0, parseInt(val)||0));
+  localReports[idx].Avance = nuevoAvance;
+  localReports[idx]._avanceEditado = true; // marca para que no se sobrescriba al sincronizar
   localStorage.setItem(REPORTS_KEY, JSON.stringify(localReports));
-  if(localReports[idx].estado==='aprobado'){ renderAvanceLocal(); renderKPIs(); }
+  sincronizarAvance(id, nuevoAvance);
+  if(localReports[idx].estado==='aprobado'){ renderAvanceLocal(); renderKPIs(); renderGanttSeccion(); }
+}
+
+function sincronizarAvance(id, avance){
+  if(!webAppUrl) return;
+  const params = new URLSearchParams({action:'updateAvance', id, avance});
+  sendJSONP(webAppUrl+'?'+params.toString(),
+    (r) => { if(r&&r.status==='ok') toast('☁️ Avance sincronizado en Sheets','ok'); },
+    ()  => { /* silencioso: ya está guardado localmente */ }
+  );
 }
 
 function mostrarToast(msg, color){
