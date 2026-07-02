@@ -2839,7 +2839,7 @@ function renderGanttSeccion() {
   diasTrans = Math.min(diasTrans, 40);
   const avPlan = Math.round((diasTrans/40)*100);
 
-  const atrasadas = lista.filter(a=>{
+  const esAtrasada = a => {
     const av = avanceRealAct(a.desc, a.avFijo);
     if(av < 0 || av >= 100) return false;
     const hoyMid5 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
@@ -2852,8 +2852,10 @@ function renderGanttSeccion() {
       return fi < hoyMid5;
     }
     return false;
-  }).length;
-  const enPlazo = lista.filter(a=>{ const av=avanceRealAct(a.desc,a.avFijo); return av>=0&&av<100; }).length;
+  };
+  const atrasadas = lista.filter(esAtrasada).length;
+  // "En plazo" excluye las atrasadas: solo actividades activas sin atraso
+  const enPlazo = lista.filter(a=>{ const av=avanceRealAct(a.desc,a.avFijo); return av>=0 && av<100 && !esAtrasada(a); }).length;
 
   const el = id => document.getElementById(id);
   if(el('g-avplan'))   { el('g-avplan').textContent=avPlan+'%'; el('g-avplan-s').textContent='A la fecha '+hoy.toLocaleDateString('es-CL'); }
@@ -2966,7 +2968,7 @@ function renderKPIs() {
   const avPlan = Math.round((diasTrans/40)*100);
 
   // Atrasadas: fin planificado < hoy con av<100, O inicio pasado con av===0
-  const atrasadas = GANTT_ACTS.filter(a=>{
+  const esAtrasadaK = a => {
     const av = avanceRealAct(a.desc, a.avFijo);
     if(av < 0 || av >= 100) return false;
     let fd = new Date('2026-06-10'), w=0;
@@ -2979,11 +2981,13 @@ function renderKPIs() {
       return fi < hoyMid4;
     }
     return false;
-  }).length;
+  };
+  const atrasadas = GANTT_ACTS.filter(esAtrasadaK).length;
 
+  // "En plazo" excluye las atrasadas: solo actividades activas sin atraso
   const enPlazo = GANTT_ACTS.filter(a=>{
     const av = avanceRealAct(a.desc, a.avFijo);
-    return av >= 0 && av < 100;
+    return av >= 0 && av < 100 && !esAtrasadaK(a);
   }).length;
 
   // Dashboard
