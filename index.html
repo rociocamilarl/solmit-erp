@@ -2834,12 +2834,24 @@ function renderGanttSeccion() {
   const hechH   = lista.reduce((s,a) => { const av=avanceRealAct(a.desc,a.avFijo); return s+(av>0?(a.horas||a.cantidad||1)*(av/100):0); }, 0);
   const avReal  = totalH ? Math.round((hechH/totalH)*100) : 0;
 
-  let diasTrans = 0;
-  let d = new Date('2026-06-10');
+  // Convierte un número de día laboral a fecha real, contando desde el inicio del proyecto
+  const diaLaboralAFecha = n => {
+    let f = new Date('2026-06-10'), w = 0;
+    while (w < (n||1) - 1) { f.setDate(f.getDate()+1); if (f.getDay()!==0 && f.getDay()!==6) w++; }
+    return f;
+  };
   const hoyMidP = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  while(d < hoyMidP){ if(d.getDay()!==0&&d.getDay()!==6) diasTrans++; d.setDate(d.getDate()+1); }
-  diasTrans = Math.min(diasTrans, 40);
-  const avPlan = Math.round((diasTrans/40)*100);
+
+  // Avance planificado ponderado por horas, respetando el filtro aplicado (Proyecto/Equipo/Estado)
+  const planHoras = lista.reduce((s,a) => {
+    const fIni = diaLaboralAFecha(a.ini), fFin = diaLaboralAFecha(a.fin);
+    let pct;
+    if (hoyMidP < fIni) pct = 0;
+    else if (hoyMidP >= fFin) pct = 100;
+    else pct = ((hoyMidP - fIni) / (fFin - fIni)) * 100;
+    return s + (a.horas||a.cantidad||1) * (pct/100);
+  }, 0);
+  const avPlan = totalH ? Math.round((planHoras/totalH)*100) : 0;
 
   const esAtrasada = a => {
     const av = avanceRealAct(a.desc, a.avFijo);
