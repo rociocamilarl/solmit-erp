@@ -761,8 +761,8 @@ textarea{resize:vertical;min-height:68px}
           </div>
         </div>
         <div id="sync-status" style="font-size:11px;color:var(--text3);margin-bottom:6px"></div>
-        <div id="cola-banner" style="display:none;background:#1a0e00;border:1px solid #7a3800;border-radius:6px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#ffb347">
-          <span id="cola-texto">📤 1 reporte sin sincronizar con Sheets</span>
+        <div id="cola-banner" style="display:none;background:#1a0e00;border:1px solid #7a3800;border-radius:6px;padding:8px 12px;margin-bottom:8px;align-items:center;justify-content:space-between;font-size:11px;color:#ffb347">
+          <span id="cola-texto"></span>
           <div style="display:flex;gap:6px">
             <button class="btn btn-s btn-sm" style="font-size:10px;background:var(--green)" onclick="drenaColaPendiente()">🔄 Reintentar</button>
             <button class="btn btn-s btn-sm" style="font-size:10px;background:var(--red)" onclick="limpiarCola()">🗑 Descartar</button>
@@ -1417,6 +1417,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(schedCheckAndExecute, 60000); // revisar envíos programados cada minuto
   setTimeout(schedCheckAndExecute, 5000);   // verificar 5s después de cargar
   actualizarBadgeQueue();
+  renderColaBanner();
   // Intentar drenar cola pendiente al inicio si hay conexión
   if(webAppUrl && navigator.onLine) setTimeout(drainQueue, 3000);
   // Verificar sesión (muestra lockscreen si no hay sesión activa)
