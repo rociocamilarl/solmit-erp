@@ -1081,7 +1081,7 @@ textarea{resize:vertical;min-height:68px}
               <div class="pdf-kpi"><div class="pdf-kv" id="pdf-av">0%</div><div class="pdf-kl">Avance real</div></div>
               <div class="pdf-kpi"><div class="pdf-kv" style="color:#2e7d32" id="pdf-term">0</div><div class="pdf-kl">Terminadas</div></div>
               <div class="pdf-kpi"><div class="pdf-kv" style="color:#e65100" id="pdf-atras">0</div><div class="pdf-kl">Atrasadas</div></div>
-              <div class="pdf-kpi"><div class="pdf-kv" style="color:#c62828" id="pdf-bloq">0</div><div class="pdf-kl">Bloqueadas</div></div>
+              <div class="pdf-kpi"><div class="pdf-kv" id="pdf-plan">0%</div><div class="pdf-kl">Avance planificado</div></div>
             </div>
           </div>
           <div id="pdf-sec-gantt">
@@ -3040,7 +3040,7 @@ function renderKPIs() {
   if(el('pdf-av'))    { el('pdf-av').textContent = avProm+'%'; }
   if(el('pdf-term'))  { el('pdf-term').textContent = term; }
   if(el('pdf-atras')) { el('pdf-atras').textContent = atrasadas; }
-  if(el('pdf-bloq'))  { el('pdf-bloq').textContent = bloq; }
+  if(el('pdf-plan'))  { el('pdf-plan').textContent = avPlan+'%'; }
   renderHorasEquipo();
   actualizarBadgePendientes();
 }
@@ -3538,7 +3538,7 @@ function capturarDatosPDF() {
     kpiAv:    txt('pdf-av'),
     kpiTerm:  txt('pdf-term'),
     kpiAtras: txt('pdf-atras'),
-    kpiBloq:  txt('pdf-bloq'),
+    kpiPlan:  txt('pdf-plan'),
     g1: wid('pdf-r-1'), g1c: clr('pdf-r-1'),
     g2: wid('pdf-r-2'), g2c: clr('pdf-r-2'),
     g3: wid('pdf-r-3'), g3c: clr('pdf-r-3'),
