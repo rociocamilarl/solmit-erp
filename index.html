@@ -1940,7 +1940,7 @@ function nav(i){
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',j===i));
   document.querySelectorAll('.sb-item').forEach((n,j)=>n.classList.toggle('on',j===i));
   document.getElementById('main').scrollTop = 0;
-  if(i===0){ renderDashRep(); renderKPIs(); renderAvanceLocal(); }
+  if(i===0){ renderDashRep(); renderKPIs(); renderAvanceLocal(); renderProyectos(); }
   if(i===2) renderGanttSeccion();
   if(i===3) renderEvidencias();
   if(i===5){ renderHist(); renderColaBanner(); }
