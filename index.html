@@ -3577,11 +3577,17 @@ function actualizarPDFPreview(){
       const histBody = sec('pdf-hist-body');
       if(histBody){
         const rows = localReports.slice(-10).reverse();
+        const badge = est => {
+          const e = (est||'').toLowerCase();
+          if (e === 'aprobado')  return '<span class="pdf-ok">Aprobado</span>';
+          if (e === 'rechazado') return '<span class="pdf-warn">Rechazado</span>';
+          return '<span class="pdf-pend">Pendiente</span>';
+        };
         histBody.innerHTML = rows.length
-          ? '<table style="width:100%;font-size:9px;border-collapse:collapse">'
-            + '<tr style="background:#f5f5f5"><th style="padding:2px 4px;text-align:left">Fecha</th><th>Trabajador</th><th>Actividad</th><th>%</th><th>Estado</th></tr>'
-            + rows.map(r=>`<tr style="border-bottom:1px solid #eee"><td style="padding:2px 4px">${r.Fecha||'—'}</td><td>${r.Trabajador||'—'}</td><td style="max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${r.Actividad||'—'}</td><td style="text-align:center">${r.Avance||0}%</td><td>${r.estado||'—'}</td></tr>`).join('')
-            + '</table>'
+          ? '<table class="pdf-tbl" style="font-size:9px">'
+            + '<thead><tr><th>Fecha</th><th>Trabajador</th><th>Actividad</th><th>%</th><th>Estado</th></tr></thead><tbody>'
+            + rows.map(r=>`<tr><td>${fmtFecha(r.Fecha)}</td><td>${(r.Trabajador||'—').split(' ')[0]}</td><td style="max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${r.Actividad||'—'}</td><td style="text-align:center;font-weight:700;color:#1565c0">${r.Avance||0}%</td><td>${badge(r.estado)}</td></tr>`).join('')
+            + '</tbody></table>'
           : 'Sin reportes registrados.';
       }
     }
