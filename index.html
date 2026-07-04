@@ -1095,11 +1095,11 @@ textarea{resize:vertical;min-height:68px}
           <div id="pdf-sec-tabla">
             <div class="pdf-sh">Estado de actividades</div>
             <table class="pdf-tbl">
-              <thead><tr><th>Actividad</th><th>Responsable</th><th>Plan</th><th>Real</th><th>Estado</th></tr></thead>
+              <thead><tr><th>Actividad</th><th>Plan</th><th>Real</th><th>Estado</th></tr></thead>
               <tbody>
-                <tr><td>Reg. Instalaciones Eléctricas</td><td>—</td><td>—</td><td id="pdf-tr-1">0%</td><td><span class="pdf-pend" id="pdf-ts-1">Pendiente</span></td></tr>
-                <tr><td>Reg. Tableros Eléctricos</td><td>—</td><td>—</td><td id="pdf-tr-2">0%</td><td><span class="pdf-pend" id="pdf-ts-2">Pendiente</span></td></tr>
-                <tr><td>Otros no considerados</td><td>—</td><td>—</td><td id="pdf-tr-3">0%</td><td><span class="pdf-pend" id="pdf-ts-3">Pendiente</span></td></tr>
+                <tr><td>Reg. Instalaciones Eléctricas</td><td id="pdf-tp-1">0%</td><td id="pdf-tr-1">0%</td><td><span class="pdf-pend" id="pdf-ts-1">Pendiente</span></td></tr>
+                <tr><td>Reg. Tableros Eléctricos</td><td id="pdf-tp-2">0%</td><td id="pdf-tr-2">0%</td><td><span class="pdf-pend" id="pdf-ts-2">Pendiente</span></td></tr>
+                <tr><td>Otros no considerados</td><td id="pdf-tp-3">0%</td><td id="pdf-tr-3">0%</td><td><span class="pdf-pend" id="pdf-ts-3">Pendiente</span></td></tr>
               </tbody>
             </table>
           </div>
@@ -3012,18 +3012,32 @@ function renderKPIs() {
 }
 
 function renderAvanceLocal() {
-  const sumas = {1:{sumH:0,horas:0}, 2:{sumH:0,horas:0}, 3:{sumH:0,horas:0}};
+  const hoy = new Date();
+  const hoyMid = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  // Convierte día laboral a fecha para el cálculo de avance planificado
+  const diaLabAFecha = n => {
+    let f = new Date(PROYECTO_INICIO), w = 0;
+    while (w < (n||1) - 1) { f.setDate(f.getDate()+1); if (f.getDay()!==0 && f.getDay()!==6) w++; }
+    return f;
+  };
+  const sumas = {1:{sumH:0,horas:0,planH:0}, 2:{sumH:0,horas:0,planH:0}, 3:{sumH:0,horas:0,planH:0}};
   GANTT_ACTS.forEach(a => {
     // Misma función que usa Carta Gantt/Dashboard KPIs, para que ambas pantallas coincidan
     const avRaw = avanceRealAct(a.desc, a.avFijo);
     const av = avRaw < 0 ? 0 : avRaw; // pendiente cuenta como 0% para el promedio ponderado
     const cat = clasificarActividad(a.desc);
-    sumas[cat].sumH += av * (a.horas||a.cantidad||1);
-    sumas[cat].horas += (a.horas||a.cantidad||1);
+    const h = (a.horas||a.cantidad||1);
+    sumas[cat].sumH += av * h;
+    sumas[cat].horas += h;
+    // Avance planificado ponderado según rango ini/fin de la actividad
+    const fIni = diaLabAFecha(a.ini), fFin = diaLabAFecha(a.fin);
+    let pct;
+    if (hoyMid < fIni) pct = 0;
+    else if (hoyMid >= fFin) pct = 100;
+    else pct = ((hoyMid - fIni) / (fFin - fIni)) * 100;
+    sumas[cat].planH += pct * h;
   });
   // Calcular si la categoría tiene actividades atrasadas (misma lógica que detalle)
-  const hoy = new Date();
-  const hoyMid = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
   const atrasadasPorCat = {1:false, 2:false, 3:false};
   GANTT_ACTS.forEach(a => {
     const av = avanceRealAct(a.desc, a.avFijo);
@@ -3042,7 +3056,7 @@ function renderAvanceLocal() {
     id: c.id,
     nombre: c.nombre,
     avance_real: sumas[c.id].horas > 0 ? Math.round(sumas[c.id].sumH / sumas[c.id].horas) : 0,
-    avance_plan: 0,
+    avance_plan: sumas[c.id].horas > 0 ? Math.round(sumas[c.id].planH / sumas[c.id].horas) : 0,
     atrasada: atrasadasPorCat[c.id]
   }));
   renderAvance(data);
@@ -3085,6 +3099,8 @@ function renderAvance(data) {
     if(pval){ pval.textContent=real+'%'; pval.style.color=colorPDF; pval.style.fontWeight='700'; }
     const ptr = document.getElementById('pdf-tr-'+i);
     if(ptr){ ptr.textContent=real+'%'; ptr.style.color=colorPDF; ptr.style.fontWeight='700'; }
+    const ptp = document.getElementById('pdf-tp-'+i);
+    if(ptp){ ptp.textContent=plan+'%'; ptp.style.color='#777'; }
     const pts = document.getElementById('pdf-ts-'+i);
     if(pts){ pts.className = real>=100?'pdf-ok':cat.atrasada?'pdf-warn':'pdf-pend'; pts.textContent = real>=100?'Terminado':cat.atrasada?'Atrasado':real>0?'En curso':'Pendiente'; }
   });
@@ -3508,9 +3524,9 @@ function capturarDatosPDF() {
     g1: wid('pdf-r-1'), g1c: clr('pdf-r-1'),
     g2: wid('pdf-r-2'), g2c: clr('pdf-r-2'),
     g3: wid('pdf-r-3'), g3c: clr('pdf-r-3'),
-    r1: txt('pdf-tr-1'), s1: txt('pdf-ts-1'),
-    r2: txt('pdf-tr-2'), s2: txt('pdf-ts-2'),
-    r3: txt('pdf-tr-3'), s3: txt('pdf-ts-3'),
+    r1: txt('pdf-tr-1'), s1: txt('pdf-ts-1'), p1: txt('pdf-tp-1'),
+    r2: txt('pdf-tr-2'), s2: txt('pdf-ts-2'), p2: txt('pdf-tp-2'),
+    r3: txt('pdf-tr-3'), s3: txt('pdf-ts-3'), p3: txt('pdf-tp-3'),
     fotosHTML: g('pdf-fotos-body')?.innerHTML || '',
     histHTML:  g('pdf-hist-body')?.innerHTML  || '',
     fechaTxt:  txt('pdf-date-txt'),
