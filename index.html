@@ -2853,30 +2853,29 @@ function renderGanttSeccion() {
   if(el('g-atrasadas')){ el('g-atrasadas').textContent=atrasadas; el('g-atrasadas-s').textContent=atrasadas?atrasadas+' actividades':'Todo en plazo'; }
 
   // ── Línea de tiempo — barras por categoría ────────────
-  const sumas = {1:{sumH:0,horas:0}, 2:{sumH:0,horas:0}, 3:{sumH:0,horas:0}};
+  const sumas = {1:{sumH:0,horas:0,planH:0}, 2:{sumH:0,horas:0,planH:0}, 3:{sumH:0,horas:0,planH:0}};
   const hoyMidLT = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const atrasadasCat = {1:false, 2:false, 3:false};
   lista.forEach(a => {
     const av  = avanceRealAct(a.desc, a.avFijo);
     const pct = av >= 0 ? av : 0;
     const cat = clasificarActividad(a.desc);
-    sumas[cat].sumH  += pct * (a.horas||a.cantidad||1);
-    sumas[cat].horas += (a.horas||a.cantidad||1);
-    if (av >= 0 && av < 100) {
-      let fd = new Date(PROYECTO_INICIO), w = 0;
-      while(w<(a.fin||1)-1){fd.setDate(fd.getDate()+1);if(fd.getDay()!==0&&fd.getDay()!==6)w++;}
-      if (fd < hoyMidLT) { atrasadasCat[cat] = true; }
-      else if (av === 0) {
-        let fi = new Date(PROYECTO_INICIO), wi = 0;
-        while(wi<(a.ini||1)-1){fi.setDate(fi.getDate()+1);if(fi.getDay()!==0&&fi.getDay()!==6)wi++;}
-        if (fi < hoyMidLT) atrasadasCat[cat] = true;
-      }
-    }
+    const h   = (a.horas||a.cantidad||1);
+    sumas[cat].sumH  += pct * h;
+    sumas[cat].horas += h;
+    // Plan ponderado por categoría según rango ini/fin de cada actividad
+    const fIni = diaLaboralAFecha(a.ini), fFin = diaLaboralAFecha(a.fin);
+    let pPlan;
+    if (hoyMidLT < fIni) pPlan = 0;
+    else if (hoyMidLT >= fFin) pPlan = 100;
+    else pPlan = ((hoyMidLT - fIni) / (fFin - fIni)) * 100;
+    sumas[cat].planH += pPlan * h;
   });
   [1,2,3].forEach(i => {
     const real  = sumas[i].horas > 0 ? Math.round(sumas[i].sumH / sumas[i].horas) : 0;
-    const color = real>=100?'var(--green)':atrasadasCat[i]?'var(--yellow)':'var(--blue)';
-    const st    = real>=100?'<span class="b bg">✓ OK</span>':atrasadasCat[i]?'<span class="b by">Con atraso</span>':real>0?'<span class="b bb">En curso</span>':'<span class="b bgr">Pendiente</span>';
+    const plan  = sumas[i].horas > 0 ? Math.round(sumas[i].planH / sumas[i].horas) : 0;
+    const atrasadaCat = real < 100 && real < plan;
+    const color = real>=100?'var(--green)':atrasadaCat?'var(--yellow)':'var(--blue)';
+    const st    = real>=100?'<span class="b bg">✓ OK</span>':atrasadaCat?'<span class="b by">Con atraso</span>':real>0?'<span class="b bb">En curso</span>':'<span class="b bgr">Pendiente</span>';
     const gr = el('g-real-'+i); if(gr){ gr.style.width=real+'%'; gr.style.background=color; }
     const gp = el('g-pct-'+i);  if(gp){ gp.textContent=real+'%'; gp.style.color=real>0?color:'var(--text3)'; }
     const gs = el('g-st-'+i);   if(gs) gs.innerHTML=st;
@@ -3037,28 +3036,18 @@ function renderAvanceLocal() {
     else pct = ((hoyMid - fIni) / (fFin - fIni)) * 100;
     sumas[cat].planH += pct * h;
   });
-  // Calcular si la categoría tiene actividades atrasadas (misma lógica que detalle)
-  const atrasadasPorCat = {1:false, 2:false, 3:false};
-  GANTT_ACTS.forEach(a => {
-    const av = avanceRealAct(a.desc, a.avFijo);
-    if (av < 0 || av >= 100) return;
-    const cat = clasificarActividad(a.desc);
-    let fd = new Date(PROYECTO_INICIO), w = 0;
-    while (w < (a.fin||1)-1){ fd.setDate(fd.getDate()+1); if(fd.getDay()!==0&&fd.getDay()!==6) w++; }
-    if (fd < hoyMid) { atrasadasPorCat[cat] = true; return; }
-    if (av === 0) {
-      let fi = new Date(PROYECTO_INICIO), wi = 0;
-      while (wi < (a.ini||1)-1){ fi.setDate(fi.getDate()+1); if(fi.getDay()!==0&&fi.getDay()!==6) wi++; }
-      if (fi < hoyMid) atrasadasPorCat[cat] = true;
-    }
+  const data = CATEGORIAS.map(c => {
+    const real = sumas[c.id].horas > 0 ? Math.round(sumas[c.id].sumH / sumas[c.id].horas) : 0;
+    const plan = sumas[c.id].horas > 0 ? Math.round(sumas[c.id].planH / sumas[c.id].horas) : 0;
+    return {
+      id: c.id,
+      nombre: c.nombre,
+      avance_real: real,
+      avance_plan: plan,
+      // La categoría está atrasada solo si su avance real va por debajo del planificado
+      atrasada: real < 100 && real < plan
+    };
   });
-  const data = CATEGORIAS.map(c => ({
-    id: c.id,
-    nombre: c.nombre,
-    avance_real: sumas[c.id].horas > 0 ? Math.round(sumas[c.id].sumH / sumas[c.id].horas) : 0,
-    avance_plan: sumas[c.id].horas > 0 ? Math.round(sumas[c.id].planH / sumas[c.id].horas) : 0,
-    atrasada: atrasadasPorCat[c.id]
-  }));
   renderAvance(data);
 }
 
