@@ -263,6 +263,7 @@ textarea{resize:vertical;min-height:68px}
     <select id="login-role" class="lock-sel">
       <option value="supervisor">👔 Supervisor / Administrador</option>
       <option value="trabajador">🦺 Trabajador de terreno</option>
+      <option value="soporte">🛠️ Soporte del ERP</option>
     </select>
     <input id="login-pin" type="password" maxlength="6" placeholder="• • • •" class="lock-pin"
       onkeydown="if(event.key==='Enter')intentarLogin()">
@@ -1296,8 +1297,22 @@ textarea{resize:vertical;min-height:68px}
       </div>
 
       <div class="card" style="margin-top:14px">
+        <div class="ct" style="justify-content:space-between">
+          <span>🗓️ Respaldos automáticos semanales</span>
+          <button class="btn btn-s btn-sm" style="font-size:10px" onclick="respaldoManualAhora()">+ Respaldar ahora</button>
+        </div>
+        <p style="font-size:12px;color:var(--text3);margin:0 0 12px">Cada semana el sistema guarda automáticamente una copia completa de los datos (reportes, proyectos, actividades y usuarios) por si el cliente elimina algo. Se conservan las últimas 12 semanas. <strong style="color:var(--yellow)">Sección exclusiva de soporte.</strong></p>
+        <div class="tw">
+          <table>
+            <thead><tr><th>Fecha y hora</th><th>Origen</th><th>Versión</th><th>Contenido</th><th>Acción</th></tr></thead>
+            <tbody id="respaldos-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
         <div class="ct">👥 Gestión de usuarios y PINs</div>
-        <p style="font-size:12px;color:var(--text3);margin:0 0 12px">Define quién puede acceder y con qué rol. El PIN es de 4–6 dígitos. <strong style="color:var(--yellow)">Solo supervisores pueden acceder a esta sección.</strong></p>
+        <p style="font-size:12px;color:var(--text3);margin:0 0 12px">Define quién puede acceder y con qué rol. El PIN es de 4–6 dígitos. <strong style="color:var(--yellow)">Sección exclusiva del equipo de soporte.</strong></p>
         <div class="tw" style="margin-bottom:12px">
           <table>
             <thead><tr><th>Nombre</th><th>Rol</th><th>PIN</th><th>Acciones</th></tr></thead>
@@ -1322,6 +1337,7 @@ textarea{resize:vertical;min-height:68px}
             <select id="u-rol" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;width:100%">
               <option value="supervisor">Supervisor</option>
               <option value="trabajador">Trabajador</option>
+              <option value="soporte">Soporte</option>
             </select>
           </div>
           <div class="fg">
@@ -1423,6 +1439,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(schedCheckAndExecute, 5000);   // verificar 5s después de cargar
   actualizarBadgeQueue();
   renderColaBanner();
+  respaldoSemanalCheck(); // respaldo automático si pasó una semana
+  renderRespaldos();
   // Intentar drenar cola pendiente al inicio si hay conexión
   if(webAppUrl && navigator.onLine) setTimeout(drainQueue, 3000);
   // Verificar sesión (muestra lockscreen si no hay sesión activa)
@@ -1718,6 +1736,87 @@ function actualizarActividades() {
 }
 
 // ── AUTO-BACKUP ─────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+// RESPALDO SEMANAL AUTOMÁTICO (protección ante borrados del cliente)
+// ══════════════════════════════════════════════════════════
+const ERP_VERSION = 'v1.0';
+const WEEKLY_KEY = 'solmit_weekly_backups';
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+function snapshotDatos(ts, origen) {
+  return {
+    ts: ts,
+    version: ERP_VERSION,
+    origen: origen || 'automático',
+    reports:    JSON.parse(localStorage.getItem('solmit_reports')    || '[]'),
+    evidencias: JSON.parse(localStorage.getItem('solmit_evidencias') || '[]'),
+    proyectos:  JSON.parse(localStorage.getItem('solmit_proyectos')  || '[]'),
+    actsExtra:  JSON.parse(localStorage.getItem('solmit_acts_extra') || '[]'),
+    users:      JSON.parse(localStorage.getItem('solmit_users')      || '[]'),
+  };
+}
+// Revisa si toca hacer el respaldo semanal (se ejecuta al abrir el ERP)
+function respaldoSemanalCheck() {
+  try {
+    let list = JSON.parse(localStorage.getItem(WEEKLY_KEY) || '[]');
+    const ultimo = list.length ? new Date(list[list.length-1].ts).getTime() : 0;
+    if (Date.now() - ultimo >= WEEK_MS) {
+      list.push(snapshotDatos(new Date().toISOString(), 'automático semanal'));
+      if (list.length > 12) list = list.slice(-12); // conservar últimas 12 semanas
+      localStorage.setItem(WEEKLY_KEY, JSON.stringify(list));
+    }
+  } catch(e) {}
+}
+// Respaldo manual inmediato (botón de soporte)
+function respaldoManualAhora() {
+  try {
+    let list = JSON.parse(localStorage.getItem(WEEKLY_KEY) || '[]');
+    list.push(snapshotDatos(new Date().toISOString(), 'manual (soporte)'));
+    if (list.length > 12) list = list.slice(-12);
+    localStorage.setItem(WEEKLY_KEY, JSON.stringify(list));
+    renderRespaldos();
+    toast('✅ Respaldo creado','ok');
+  } catch(e) { toast('❌ Error al crear respaldo','err'); }
+}
+// Restaurar los datos desde un respaldo puntual
+function restaurarRespaldo(idx) {
+  if(!confirm('¿Restaurar todos los datos desde este respaldo? Se sobrescribirán los datos actuales.')) return;
+  try {
+    const list = JSON.parse(localStorage.getItem(WEEKLY_KEY) || '[]');
+    const s = list[idx];
+    if(!s) return;
+    localStorage.setItem('solmit_reports',    JSON.stringify(s.reports||[]));
+    localStorage.setItem('solmit_evidencias', JSON.stringify(s.evidencias||[]));
+    localStorage.setItem('solmit_proyectos',  JSON.stringify(s.proyectos||[]));
+    localStorage.setItem('solmit_acts_extra', JSON.stringify(s.actsExtra||[]));
+    if(s.users?.length) localStorage.setItem('solmit_users', JSON.stringify(s.users));
+    toast('✅ Datos restaurados. Recargando…','ok');
+    setTimeout(()=>location.reload(), 1200);
+  } catch(e) { toast('❌ Error al restaurar','err'); }
+}
+// Renderiza el listado de respaldos en la sección Proyectos (solo soporte)
+function renderRespaldos() {
+  const tb = document.getElementById('respaldos-body');
+  if(!tb) return;
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(WEEKLY_KEY) || '[]'); } catch(e){}
+  if(!list.length){
+    tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:12px;font-size:11px">Sin respaldos aún — el primero se generará automáticamente.</td></tr>';
+    return;
+  }
+  tb.innerHTML = list.slice().reverse().map((s, ri) => {
+    const idx = list.length - 1 - ri; // índice real en el arreglo original
+    const f = new Date(s.ts).toLocaleString('es-CL');
+    const nRep = (s.reports||[]).length, nProy = (s.proyectos||[]).length;
+    return `<tr>
+      <td style="font-size:11px;white-space:nowrap">${f}</td>
+      <td style="font-size:11px">${s.origen||'—'}</td>
+      <td style="font-size:11px;text-align:center">${s.version||'—'}</td>
+      <td style="font-size:11px;text-align:center">${nRep} rep · ${nProy} proy</td>
+      <td><button class="btn btn-s btn-sm" style="font-size:10px" onclick="restaurarRespaldo(${idx})">↩️ Restaurar</button></td>
+    </tr>`;
+  }).join('');
+}
+
 const BACKUP_INTERVAL_MS = 5 * 60 * 1000; // cada 5 minutos
 function autoBackup() {
   try {
@@ -1938,6 +2037,11 @@ function setPDFDates(){
 // NAVIGATION
 // ══════════════════════════
 function nav(i){
+  // Proyectos (sección 6) reservada exclusivamente al rol de soporte
+  if(i===6 && window._rolActual !== 'soporte'){
+    toast('🔒 Sección reservada al equipo de soporte','err');
+    return;
+  }
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('on',j===i));
   document.querySelectorAll('.sb-item').forEach((n,j)=>n.classList.toggle('on',j===i));
   document.getElementById('main').scrollTop = 0;
@@ -3875,12 +3979,23 @@ function copyId(id){
 // ══════════════════════════════════════════
 const USERS_KEY = 'solmit_users';
 const QUEUE_KEY = 'solmit_queue';
+const SOPORTE_USER = {nombre:'Rocío Rojas Lacroix', iniciales:'RR', rol:'soporte', pin:'7391'};
 const DEFAULT_USERS = [
   {nombre:'Jorge Rojas', iniciales:'JR', rol:'supervisor', pin:'1234'},
   {nombre:'Trabajador',  iniciales:'TR', rol:'trabajador', pin:'5678'},
+  {...SOPORTE_USER},
 ];
 
-function getUsers(){ return JSON.parse(localStorage.getItem(USERS_KEY)||'null') || DEFAULT_USERS; }
+function getUsers(){
+  let users = JSON.parse(localStorage.getItem(USERS_KEY)||'null');
+  if(!users) users = DEFAULT_USERS.map(u=>({...u}));
+  // Garantizar que siempre exista el usuario de soporte (no se puede eliminar)
+  if(!users.some(u => u.rol === 'soporte')){
+    users.push({...SOPORTE_USER});
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  }
+  return users;
+}
 function saveUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
 
 function intentarLogin(){
@@ -3904,18 +4019,26 @@ function intentarLogin(){
 }
 
 function aplicarSesion(u){
+  window._rolActual = u.rol;
   document.getElementById('user-av').textContent   = u.iniciales;
   document.getElementById('user-name').textContent = u.nombre;
-  // Trabajador: solo ve formulario
+  const nav6 = document.getElementById('nav6');
   if(u.rol === 'trabajador'){
+    // Trabajador: solo ve formulario
     ['nav0','nav2','nav3','nav4','nav5','nav6'].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.style.display = 'none';
     });
     nav(1);
+  } else if(u.rol === 'soporte'){
+    // Soporte: acceso total, incluida la sección Proyectos
+    if(nav6) nav6.style.display = '';
+  } else {
+    // Supervisor: acceso a todo EXCEPTO Proyectos (reservada a soporte)
+    if(nav6) nav6.style.display = 'none';
   }
-  // Supervisor: ocultar sección usuarios a trabajadores (ya está oculta por nav)
   renderUsers();
+  renderRespaldos();
 }
 
 function cerrarSesion(){
@@ -3934,7 +4057,7 @@ function verificarSesion(){
   const hasCustom = !!localStorage.getItem(USERS_KEY);
   if(!hasCustom){
     document.getElementById('login-hint').innerHTML =
-      'PINs iniciales:<br>Supervisor → <strong>1234</strong> &nbsp;|&nbsp; Trabajador → <strong>5678</strong><br><em style="color:var(--text3)">Cámbialos en Proyectos → Gestión de usuarios</em>';
+      'PINs iniciales:<br>Supervisor → <strong>1234</strong> &nbsp;|&nbsp; Trabajador → <strong>5678</strong> &nbsp;|&nbsp; Soporte → <strong>7391</strong><br><em style="color:var(--text3)">Cámbialos en Proyectos → Gestión de usuarios</em>';
   }
   document.getElementById('login-pin').focus();
 }
@@ -3945,21 +4068,22 @@ function renderUsers(){
   if(!tb) return;
   const users = getUsers();
   const curUser = JSON.parse(sessionStorage.getItem('solmit_user')||'{}');
-  if(curUser.rol !== 'supervisor'){
-    // ocultar toda la tarjeta de usuarios a trabajadores
+  if(curUser.rol !== 'soporte'){
+    // La gestión de usuarios es exclusiva del rol de soporte
     const card = tb.closest('.card');
     if(card) card.style.display='none';
     return;
   }
+  const badgeCls = r => r==='soporte'?'by':r==='supervisor'?'bb':'bg';
   tb.innerHTML = users.map((u,i) => `
     <tr>
       <td><strong>${u.nombre}</strong></td>
-      <td><span class="b ${u.rol==='supervisor'?'bb':'bg'}">${u.rol}</span></td>
+      <td><span class="b ${badgeCls(u.rol)}">${u.rol}</span></td>
       <td style="letter-spacing:3px;font-size:14px">${'•'.repeat(u.pin.length)}</td>
       <td>
         <button class="btn btn-s btn-sm" onclick="editarUsuario(${i})">✏️</button>
         <button class="btn btn-s btn-sm" style="background:rgba(229,57,53,.15);color:var(--red);margin-left:4px"
-          onclick="eliminarUsuario(${i})" ${users.length<=1?'disabled':''}>✕</button>
+          onclick="eliminarUsuario(${i})" ${(users.length<=1 || u.rol==='soporte')?'disabled':''}>✕</button>
       </td>
     </tr>`).join('');
 }
@@ -3998,6 +4122,7 @@ function guardarUsuario(){
 function eliminarUsuario(idx){
   const users = getUsers();
   if(users.length <= 1){ toast('Debe quedar al menos un usuario','err'); return; }
+  if(users[idx]?.rol === 'soporte'){ toast('🔒 El usuario de soporte no se puede eliminar','err'); return; }
   if(!confirm('¿Eliminar usuario "'+users[idx].nombre+'"?')) return;
   users.splice(idx,1);
   saveUsers(users);
