@@ -228,9 +228,7 @@ textarea{resize:vertical;min-height:68px}
 .pdf-pend{background:#e3f2fd;color:#4db8ff;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
 .pdf-gantt-tbl{width:100%;border-collapse:collapse}
 .pdf-gantt-tbl td{padding:3px 0;font-size:9px;color:#555;vertical-align:middle}
-.pdf-gbar{width:100%;border-collapse:collapse;table-layout:fixed;height:8px;background:#e8eef7;border-radius:3px}
-.pdf-gbar td{padding:0;height:8px}
-.pdf-gbar-fill{border-radius:3px}
+.pdf-barchars{font-family:'Courier New',monospace;font-size:11px;letter-spacing:-2px;white-space:nowrap;line-height:1}
 .pdf-foot{font-size:8.5px;color:#bbb;text-align:center;padding-top:8px;border-top:1px solid #eee;margin-top:8px}
 
 /* ── TOAST ── */
@@ -1091,17 +1089,17 @@ textarea{resize:vertical;min-height:68px}
             <table class="pdf-gantt-tbl">
               <tr>
                 <td style="width:145px">Reg. Inst. Eléctricas</td>
-                <td style="padding-left:6px;padding-right:6px"><table class="pdf-gbar"><tr><td class="pdf-gbar-fill" id="pdf-r-1" style="width:0%;background:#1565c0"></td><td id="pdf-e-1"></td></tr></table></td>
+                <td style="padding-left:6px;padding-right:6px"><span class="pdf-barchars" id="pdf-bar-1"></span></td>
                 <td id="pdf-v-1" style="width:34px;text-align:right;font-weight:700">0%</td>
               </tr>
               <tr>
                 <td style="width:145px">Reg. Tableros Eléct.</td>
-                <td style="padding-left:6px;padding-right:6px"><table class="pdf-gbar"><tr><td class="pdf-gbar-fill" id="pdf-r-2" style="width:0%;background:#1565c0"></td><td id="pdf-e-2"></td></tr></table></td>
+                <td style="padding-left:6px;padding-right:6px"><span class="pdf-barchars" id="pdf-bar-2"></span></td>
                 <td id="pdf-v-2" style="width:34px;text-align:right;font-weight:700">0%</td>
               </tr>
               <tr>
                 <td style="width:145px">Otros no considerados</td>
-                <td style="padding-left:6px;padding-right:6px"><table class="pdf-gbar"><tr><td class="pdf-gbar-fill" id="pdf-r-3" style="width:0%;background:#1565c0"></td><td id="pdf-e-3"></td></tr></table></td>
+                <td style="padding-left:6px;padding-right:6px"><span class="pdf-barchars" id="pdf-bar-3"></span></td>
                 <td id="pdf-v-3" style="width:34px;text-align:right;font-weight:700">0%</td>
               </tr>
             </table>
@@ -3204,11 +3202,12 @@ function renderAvance(data) {
     if(gtr){ gtr.textContent=real+'%'; gtr.style.color=real>0?color:'var(--text3)'; }
     const gts = document.getElementById('gt-st-'+i);
     if(gts) gts.innerHTML=st;
-    // PDF
-    const pr = document.getElementById('pdf-r-'+i);
-    if(pr){ pr.style.width=real+'%'; pr.style.background=colorPDF; }
-    const pe = document.getElementById('pdf-e-'+i);
-    if(pe){ pe.style.width=(100-real)+'%'; }
+    // PDF — barra dibujada con caracteres de bloque (el color de texto sí se renderiza en el PDF)
+    const bar = document.getElementById('pdf-bar-'+i);
+    if(bar){
+      const total = 28, filled = Math.max(0, Math.min(total, Math.round(real/100*total)));
+      bar.innerHTML = '<span style="color:'+colorPDF+'">'+'█'.repeat(filled)+'</span><span style="color:#dfe6f2">'+'█'.repeat(total-filled)+'</span>';
+    }
     const pval = document.getElementById('pdf-v-'+i);
     if(pval){ pval.textContent=real+'%'; pval.style.color=colorPDF; pval.style.fontWeight='700'; }
     const ptr = document.getElementById('pdf-tr-'+i);
@@ -3651,9 +3650,7 @@ function capturarHTMLCompletoPreview() {
     .pdf-gantt-l{width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .pdf-gantt-tbl{width:100%;border-collapse:collapse}
     .pdf-gantt-tbl td{padding:3px 0;font-size:9px;color:#555;vertical-align:middle}
-    .pdf-gbar{width:100%;border-collapse:collapse;table-layout:fixed;height:8px;background:#e8eef7;border-radius:3px}
-    .pdf-gbar td{padding:0;height:8px}
-    .pdf-gbar-fill{border-radius:3px}
+    .pdf-barchars{font-family:'Courier New',monospace;font-size:11px;letter-spacing:-2px;white-space:nowrap;line-height:1}
     .pdf-foot{font-size:8.5px;color:#bbb;text-align:center;padding-top:8px;border-top:1px solid #eee;margin-top:8px}
   `;
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body><div class="pdf">'+prev.innerHTML+'</div></body></html>';
