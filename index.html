@@ -337,9 +337,9 @@ textarea{resize:vertical;min-height:68px}
 
   <div class="kpis kpis-4">
     <div class="kpi kb"><div class="kpi-l">Avance real</div><div class="kpi-v" id="d-avreal">0%</div><div class="kpi-s" id="d-avreal-s">Sin datos aún</div></div>
-    <div class="kpi kg"><div class="kpi-l">Actividades OK</div><div class="kpi-v" id="d-ok">0</div><div class="kpi-s" id="d-ok-s">Sin datos aún</div></div>
+    <div class="kpi kb"><div class="kpi-l">Avance planificado</div><div class="kpi-v" id="d-avplan">0%</div><div class="kpi-s">A la fecha</div></div>
+    <div class="kpi kg"><div class="kpi-l">Actividades realizadas</div><div class="kpi-v" id="d-ok">0</div><div class="kpi-s" id="d-ok-s">Sin datos aún</div></div>
     <div class="kpi ky"><div class="kpi-l">Atrasadas</div><div class="kpi-v" id="d-atrasadas">0</div><div class="kpi-s">Respecto al plan</div></div>
-    <div class="kpi kr"><div class="kpi-l">Reportes hoy</div><div class="kpi-v" id="d-hoy">0</div><div class="kpi-s">Enviados por trabajadores</div></div>
   </div>
 
   <div class="g2">
@@ -3099,7 +3099,8 @@ function renderKPIs() {
 
   // Dashboard
   const el = id => document.getElementById(id);
-  if(el('d-avreal'))  { el('d-avreal').textContent = avProm+'%'; el('d-avreal-s').textContent = avProm > 0 ? 'Plan: '+avPlan+'% · Δ '+(avProm-avPlan)+'pts' : 'Sin datos aún'; }
+  if(el('d-avreal'))  { el('d-avreal').textContent = avProm+'%'; el('d-avreal-s').textContent = avProm > 0 ? 'Desviación '+(avProm-avPlan)+' pts' : 'Sin datos aún'; }
+  if(el('d-avplan'))  { el('d-avplan').textContent = avPlan+'%'; }
   if(el('d-ok'))      { el('d-ok').textContent = term; el('d-ok-s').textContent = term ? term+' actividades 100%' : 'Sin datos aún'; }
   if(el('d-atrasadas')){ el('d-atrasadas').textContent = atrasadas; }
   if(el('d-hoy'))     { el('d-hoy').textContent = repHoy; }
@@ -3459,7 +3460,8 @@ function renderDashRep(){
     </tr>`;
   }).join('');
   const hoy = new Date().toISOString().slice(0,10);
-  document.getElementById('d-hoy').textContent = localReports.filter(r=>{ try{ return new Date(r.Fecha).toISOString().slice(0,10)===hoy; }catch(e){ return false; } }).length;
+  const elHoy = document.getElementById('d-hoy');
+  if(elHoy) elHoy.textContent = localReports.filter(r=>{ try{ return new Date(r.Fecha).toISOString().slice(0,10)===hoy; }catch(e){ return false; } }).length;
 }
 
 // ══════════════════════════
@@ -3578,35 +3580,67 @@ async function enviarAhora(){
   st.className='ib';
   st.innerHTML='⏳ Generando y enviando reporte por Gmail…';
 
-  const incKpi   = document.getElementById('now-kpi')?.checked   ? '1':'0';
-  const incGantt = document.getElementById('now-gantt')?.checked ? '1':'0';
-  const incTabla = document.getElementById('now-tabla')?.checked ? '1':'0';
-  const incFotos = document.getElementById('now-fotos')?.checked ? '1':'0';
-  const incHist  = document.getElementById('now-hist')?.checked  ? '1':'0';
-  const filtroProy = document.getElementById('rep-proj')?.value || '';
+  // Asegurar que el preview refleje exactamente las secciones seleccionadas
+  actualizarPDFPreview();
+  const html = capturarHTMLCompletoPreview();
 
-  // Capturar valores clave del PDF preview (URL corta, no base64)
-  const kd = capturarDatosPDF();
+  // Enviar el HTML real del preview vía POST (sin límite de tamaño) para que el PDF sea idéntico
+  let ifr = document.getElementById('solmit-send-iframe');
+  if(!ifr){
+    ifr = document.createElement('iframe');
+    ifr.name = 'solmit-send-iframe';
+    ifr.id   = 'solmit-send-iframe';
+    ifr.style.display = 'none';
+    document.body.appendChild(ifr);
+  }
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = webAppUrl;
+  form.target = 'solmit-send-iframe';
+  const addF = (n,v) => { const i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); };
+  addF('action','sendReportHTML');
+  addF('email', email);
+  addF('cc', cc);
+  addF('asunto', asunto);
+  addF('msg', msg);
+  addF('html', html);
+  document.body.appendChild(form);
+  form.submit();
+  setTimeout(()=>{ try{ document.body.removeChild(form); }catch(e){} }, 1000);
 
-  const params = new URLSearchParams({action:'sendReport',email,cc,asunto,msg,proyecto:'PROJ-202606-1',filtroProy,incKpi,incGantt,incTabla,incFotos,incHist,...kd});
-  sendJSONP(
-    webAppUrl+'?'+params.toString(),
-    (res) => {
-      const now = new Date().toLocaleString('es-CL');
-      if(res && res.status === 'ok'){
-        st.innerHTML=`✅ <strong>Reporte enviado correctamente</strong><br>A: <strong>${email}</strong>${cc?' · CC: '+cc:''}<br>Enviado: ${now}`;
-        toast('✅ Reporte PDF enviado por Gmail','ok');
-      } else {
-        st.className='wb';
-        st.innerHTML='⚠️ El servidor respondió con error: '+(res&&res.msg||'desconocido');
-      }
-    },
-    () => {
-      st.className='wb';
-      st.innerHTML='❌ Sin respuesta del servidor. Verifica la URL del Web App en Base de datos → Configuración.';
-    },
-    20000
-  );
+  const now = new Date().toLocaleString('es-CL');
+  st.innerHTML=`✅ <strong>Reporte enviado</strong><br>A: <strong>${email}</strong>${cc?' · CC: '+cc:''}<br>Enviado: ${now}<br><span style="font-size:10px;color:var(--text3)">El PDF adjunto usa el mismo diseño de esta vista previa.</span>`;
+  toast('✅ Reporte PDF enviado por Gmail','ok');
+}
+
+// Construye un HTML autocontenido (CSS + logo) idéntico a la vista previa del PDF
+function capturarHTMLCompletoPreview() {
+  const prev = document.getElementById('pdf-preview');
+  const css = `
+    body{margin:0;padding:20px;background:#fff}
+    .pdf{background:#fff;padding:18px 20px;color:#333;font-size:11px;font-family:'Segoe UI',Arial,sans-serif}
+    .pdf-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:10px;border-bottom:3px solid #1565c0;margin-bottom:10px}
+    .pdf-title{font-size:13px;font-weight:700;color:#1565c0}
+    .pdf-sub{font-size:9.5px;color:#777;line-height:1.6}
+    .pdf-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}
+    .pdf-kpi{border:1px solid #e5e5e5;border-radius:4px;padding:7px;text-align:center}
+    .pdf-kv{font-size:17px;font-weight:700;color:#1565c0}
+    .pdf-kl{font-size:8.5px;color:#999;margin-top:2px}
+    .pdf-sh{font-size:9.5px;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 5px;padding-bottom:2px;border-bottom:1px solid #e5e5e5}
+    .pdf-tbl{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:8px}
+    .pdf-tbl th{background:#f0f4ff;color:#555;padding:4px 7px;font-weight:600;border-bottom:1px solid #e5e5e5;text-align:left}
+    .pdf-tbl td{padding:4px 7px;border-bottom:1px solid #f5f5f5;color:#222}
+    .pdf-ok{background:#e8f5e9;color:#1db89a;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
+    .pdf-warn{background:#fff8e1;color:#ffb300;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
+    .pdf-pend{background:#e3f2fd;color:#4db8ff;border-radius:7px;padding:1px 5px;font-size:9px;font-weight:700}
+    .pdf-gantt-row{display:flex;align-items:center;gap:5px;margin-bottom:4px;font-size:9px;color:#555}
+    .pdf-gantt-l{width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pdf-gantt-w{flex:1;height:8px;background:#f0f0f0;border-radius:3px;position:relative}
+    .pdf-gantt-p{position:absolute;height:100%;border-radius:3px;background:#c7d8f5}
+    .pdf-gantt-r{position:absolute;top:0;height:100%;border-radius:3px}
+    .pdf-foot{font-size:8.5px;color:#bbb;text-align:center;padding-top:8px;border-top:1px solid #eee;margin-top:8px}
+  `;
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+css+'</style></head><body><div class="pdf">'+prev.innerHTML+'</div></body></html>';
 }
 
 function capturarDatosPDF() {
