@@ -1418,6 +1418,45 @@ let localReports    = JSON.parse(localStorage.getItem(REPORTS_KEY) || '[]');
 let localEvidencias = JSON.parse(localStorage.getItem(EVI_KEY)     || '[]');
 let formMode = 'erp';
 
+// ══════════════════════════════════════════════════════════
+// AUTO-ACTUALIZACIÓN DE VERSIÓN
+// Detecta cuando hay una versión nueva publicada en GitHub Pages y
+// recarga la página evitando la caché. Los datos guardados en el
+// navegador (localStorage) NO se pierden — aplica a todos los roles.
+// ══════════════════════════════════════════════════════════
+async function _etagServidor(){
+  try{
+    const r = await fetch(location.pathname + '?vchk=' + Date.now(), {method:'HEAD', cache:'no-store'});
+    return r.headers.get('etag') || r.headers.get('last-modified') || '';
+  }catch(e){ return ''; }
+}
+function _recargarSinCache(){
+  toast('🔄 Nueva versión disponible — actualizando…','ok');
+  setTimeout(()=>location.replace(location.pathname + '?v=' + Date.now()), 1200);
+}
+async function iniciarAutoActualizacion(){
+  const KEY='solmit_etag', LOCK='solmit_last_autoreload';
+  const bloqueo = () => Date.now() - parseInt(localStorage.getItem(LOCK)||'0') < 10*60*1000; // máx 1 recarga cada 10 min
+  const et = await _etagServidor();
+  if(!et) return;
+  const guardado = localStorage.getItem(KEY);
+  if(guardado && guardado !== et && !bloqueo()){
+    localStorage.setItem(KEY, et);
+    localStorage.setItem(LOCK, String(Date.now()));
+    _recargarSinCache();
+    return;
+  }
+  localStorage.setItem(KEY, et);
+  setInterval(async ()=>{
+    const nuevo = await _etagServidor();
+    if(nuevo && nuevo !== localStorage.getItem(KEY) && !bloqueo()){
+      localStorage.setItem(KEY, nuevo);
+      localStorage.setItem(LOCK, String(Date.now()));
+      _recargarSinCache();
+    }
+  }, 10*60*1000);
+}
+
 // ══════════════════════════
 // INIT
 // ══════════════════════════
@@ -1451,6 +1490,13 @@ document.addEventListener('DOMContentLoaded', () => {
   renderColaBanner();
   respaldoSemanalCheck(); // respaldo automático si pasó una semana
   renderRespaldos();
+  iniciarAutoActualizacion(); // recargar solo si hay versión nueva publicada
+  // Sincronización automática desde Sheets: al abrir y cada 5 minutos,
+  // para que los cambios hechos en otro navegador (cliente/soporte) se reflejen solos
+  if(webAppUrl && navigator.onLine){
+    setTimeout(()=>syncFromSheets(true), 4000);
+    setInterval(()=>{ if(navigator.onLine) syncFromSheets(true); }, 5*60*1000);
+  }
   // Intentar drenar cola pendiente al inicio si hay conexión
   if(webAppUrl && navigator.onLine) setTimeout(drainQueue, 3000);
   // Verificar sesión (muestra lockscreen si no hay sesión activa)
@@ -3226,8 +3272,9 @@ function renderAvance(data) {
 // ══════════════════════════
 // SYNC DESDE SHEETS
 // ══════════════════════════
-function syncFromSheets(){
-  if(!webAppUrl){ toast('⚠️ Configura primero el Web App URL','err'); return; }
+function syncFromSheets(silent){
+  window._syncSilent = !!silent;
+  if(!webAppUrl){ if(!silent) toast('⚠️ Configura primero el Web App URL','err'); return; }
   const btn = document.getElementById('btn-sync');
   const status = document.getElementById('sync-status');
   if(btn) { btn.textContent='⏳ Cargando…'; btn.disabled=true; }
@@ -3299,14 +3346,14 @@ function processSync(json, status){
       renderEvidencias();
       renderKPIs();
       if(status) status.textContent = '✅ ' + normalized.length + ' registros cargados desde Sheets · ' + now;
-      toast('✅ ' + normalized.length + ' registros sincronizados desde Sheets','ok');
+      if(!window._syncSilent) toast('✅ ' + normalized.length + ' registros sincronizados desde Sheets','ok');
     } else {
       if(status) status.textContent = '⚠️ ' + (json.msg || 'Sin datos');
-      toast('⚠️ ' + (json.msg || 'Error al cargar'),'err');
+      if(!window._syncSilent) toast('⚠️ ' + (json.msg || 'Error al cargar'),'err');
     }
   }catch(err){
     if(status) status.textContent = '❌ Error al procesar datos';
-    toast('❌ Error al procesar la respuesta','err');
+    if(!window._syncSilent) toast('❌ Error al procesar la respuesta','err');
   }
 }
 
