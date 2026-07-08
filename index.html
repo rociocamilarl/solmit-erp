@@ -4035,26 +4035,38 @@ function saveWebApp(){
   localStorage.setItem(WEBAPP_KEY, webAppUrl);
 }
 
-function testWebApp(){
+async function testWebApp(){
   const url = document.getElementById('webapp-url').value.trim();
   const res = document.getElementById('test-result');
   if(!url){res.style.display='block';res.className='wb';res.innerHTML='<strong>⚠️ Ingresa la URL primero.</strong>';return;}
   webAppUrl=url;
   localStorage.setItem(WEBAPP_KEY,url);
-  res.style.display='block';res.className='ib';res.innerHTML='⏳ Probando conexión con JSONP…';
+  res.style.display='block';res.className='ib';res.innerHTML='⏳ Probando conexión…';
+  const marcarOK = () => {
+    res.className='ib';
+    res.innerHTML = '✅ <strong>Conexión OK</strong> — Apps Script respondió correctamente.';
+    const chip = document.getElementById('sync-chip');
+    if(chip){ chip.textContent='● Conectado'; chip.className='chip chip-g'; }
+    toast('✅ Web App conectado','ok');
+  };
+  // 1) fetch sin cookies: evita el interceptor de multi-cuenta de Google
+  try{
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), 20000);
+    const r = await fetch(url + '?action=ping', {signal: ctrl.signal, redirect:'follow'});
+    clearTimeout(t);
+    const j = await r.json();
+    if(j && j.status === 'ok'){ marcarOK(); return; }
+  }catch(e){ /* probar con JSONP como respaldo */ }
+  // 2) respaldo JSONP (con timeout amplio por arranque en frío de Apps Script)
   sendJSONP(
     url + '?action=ping',
-    (data) => {
-      res.innerHTML = '✅ <strong>Conexión OK</strong> — Apps Script respondió correctamente.';
-      document.getElementById('sync-chip').textContent='● Conectado';
-      document.getElementById('sync-chip').className='chip chip-g';
-      toast('✅ Web App conectado','ok');
-    },
+    () => marcarOK(),
     () => {
       res.className='wb';
       res.innerHTML='❌ Sin respuesta. Verifica que el Web App esté publicado como "Cualquier persona" y la URL sea correcta.';
     },
-    8000
+    20000
   );
 }
 
