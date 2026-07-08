@@ -3280,27 +3280,37 @@ function syncFromSheets(silent){
   if(btn) { btn.textContent='⏳ Cargando…'; btn.disabled=true; }
   if(status) status.textContent = 'Conectando con Google Sheets…';
 
-  // JSONP — funciona desde file:// sin bloqueo CORS
-  const cbName = '_solmit_cb_' + Date.now();
-  const timeout = setTimeout(() => {
-    delete window[cbName];
-    if(btn){ btn.textContent='🔄 Cargar desde Sheets'; btn.disabled=false; }
+  const fin = () => { if(btn){ btn.textContent='🔄 Cargar desde Sheets'; btn.disabled=false; } };
+  const fallo = () => {
+    fin();
     if(status) status.textContent = '❌ Tiempo de espera agotado — verifica que el Web App esté publicado';
-    toast('❌ Sin respuesta del servidor','err');
-  }, 15000);
-
-  window[cbName] = function(json) {
-    clearTimeout(timeout);
-    delete window[cbName];
-    document.getElementById('jsonp-tag')?.remove();
-    if(btn){ btn.textContent='🔄 Cargar desde Sheets'; btn.disabled=false; }
-    processSync(json, status);
+    if(!window._syncSilent) toast('❌ Sin respuesta del servidor','err');
   };
 
-  const script = document.createElement('script');
-  script.id = 'jsonp-tag';
-  script.src = webAppUrl + '?action=getReports&limit=50&callback=' + cbName;
-  document.head.appendChild(script);
+  // 1) fetch sin cookies: inmune al interceptor de multi-cuenta de Google
+  const ctrl = new AbortController();
+  const tf = setTimeout(() => ctrl.abort(), 20000);
+  fetch(webAppUrl + '?action=getReports&limit=50', {signal: ctrl.signal, redirect: 'follow'})
+    .then(r => r.json())
+    .then(json => { clearTimeout(tf); fin(); processSync(json, status); })
+    .catch(() => {
+      clearTimeout(tf);
+      // 2) respaldo JSONP (script tag)
+      const cbName = '_solmit_cb_' + Date.now();
+      const timeout = setTimeout(() => { delete window[cbName]; fallo(); }, 15000);
+      window[cbName] = function(json) {
+        clearTimeout(timeout);
+        delete window[cbName];
+        document.getElementById('jsonp-tag')?.remove();
+        fin();
+        processSync(json, status);
+      };
+      const script = document.createElement('script');
+      script.id = 'jsonp-tag';
+      script.src = webAppUrl + '?action=getReports&limit=50&callback=' + cbName;
+      script.onerror = () => { clearTimeout(timeout); delete window[cbName]; script.remove(); fallo(); };
+      document.head.appendChild(script);
+    });
 }
 
 function processSync(json, status){
@@ -4247,24 +4257,34 @@ function limpiarFormUsuario(){
 // JSONP HELPER + COLA DE ENVÍOS
 // ══════════════════════════════════════════
 function sendJSONP(url, onSuccess, onError, timeoutMs = 12000){
-  const cbName = '_sjp_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-  const timer = setTimeout(() => {
-    delete window[cbName];
-    document.getElementById(cbName)?.remove();
-    if(onError) onError(new Error('timeout'));
-  }, timeoutMs);
-  window[cbName] = function(data){
-    clearTimeout(timer);
-    delete window[cbName];
-    document.getElementById(cbName)?.remove();
-    if(onSuccess) onSuccess(data);
-  };
-  const sep = url.includes('?') ? '&' : '?';
-  const s = document.createElement('script');
-  s.id  = cbName;
-  s.src = url + sep + 'callback=' + cbName;
-  s.onerror = () => { clearTimeout(timer); delete window[cbName]; s.remove(); if(onError) onError(new Error('script error')); };
-  document.head.appendChild(s);
+  // 1) fetch sin cookies: inmune al interceptor de multi-cuenta de Google
+  const ctrl = new AbortController();
+  const tf = setTimeout(() => ctrl.abort(), timeoutMs);
+  fetch(url, {signal: ctrl.signal, redirect: 'follow'})
+    .then(r => r.json())
+    .then(data => { clearTimeout(tf); if(onSuccess) onSuccess(data); })
+    .catch(() => {
+      clearTimeout(tf);
+      // 2) respaldo JSONP (script tag) para entornos donde fetch/CORS falle (ej. file://)
+      const cbName = '_sjp_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      const timer = setTimeout(() => {
+        delete window[cbName];
+        document.getElementById(cbName)?.remove();
+        if(onError) onError(new Error('timeout'));
+      }, timeoutMs);
+      window[cbName] = function(data){
+        clearTimeout(timer);
+        delete window[cbName];
+        document.getElementById(cbName)?.remove();
+        if(onSuccess) onSuccess(data);
+      };
+      const sep = url.includes('?') ? '&' : '?';
+      const s = document.createElement('script');
+      s.id  = cbName;
+      s.src = url + sep + 'callback=' + cbName;
+      s.onerror = () => { clearTimeout(timer); delete window[cbName]; s.remove(); if(onError) onError(new Error('script error')); };
+      document.head.appendChild(s);
+    });
 }
 
 function encolarReporte(data){
