@@ -3263,10 +3263,8 @@ function renderAvance(data) {
     const pts = document.getElementById('pdf-ts-'+i);
     if(pts){ pts.className = real>=100?'pdf-ok':cat.atrasada?'pdf-warn':'pdf-pend'; pts.textContent = real>=100?'Terminado':cat.atrasada?'Atrasado':real>0?'En curso':'Pendiente'; }
   });
-  // KPI avance general
-  const avg = data.length ? Math.round(totalReal/data.length) : 0;
-  const kpi = document.querySelector('.kpi-v');
-  if(kpi) kpi.textContent=avg+'%';
+  // (El KPI "Avance real" del Dashboard lo calcula renderKPIs ponderado por horas;
+  //  aquí ya no se sobrescribe con el promedio simple de categorías.)
 }
 
 // ══════════════════════════
