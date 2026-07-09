@@ -1286,6 +1286,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('webapp-url').value = webAppUrl;
   restaurarDesdeBackup();
   actualizarGanttActs();
+  cargarOverridesGantt(); // aplicar % y estados editados manualmente
   actualizarActividades();
   poblarSelectoresProy();
   renderHist();
@@ -1647,6 +1648,7 @@ function snapshotDatos(ts, origen) {
     proyectos:  JSON.parse(localStorage.getItem('solmit_proyectos')  || '[]'),
     actsExtra:  JSON.parse(localStorage.getItem('solmit_acts_extra') || '[]'),
     users:      JSON.parse(localStorage.getItem('solmit_users')      || '[]'),
+    ganttOvr:   JSON.parse(localStorage.getItem('solmit_gantt_ovr')  || '{}'),
   };
 }
 // Revisa si toca hacer el respaldo semanal (se ejecuta al abrir el ERP)
@@ -1684,6 +1686,7 @@ function restaurarRespaldo(idx) {
     localStorage.setItem('solmit_proyectos',  JSON.stringify(s.proyectos||[]));
     localStorage.setItem('solmit_acts_extra', JSON.stringify(s.actsExtra||[]));
     if(s.users?.length) localStorage.setItem('solmit_users', JSON.stringify(s.users));
+    if(s.ganttOvr) localStorage.setItem('solmit_gantt_ovr', JSON.stringify(s.ganttOvr));
     toast('✅ Datos restaurados. Recargando…','ok');
     setTimeout(()=>location.reload(), 1200);
   } catch(e) { toast('❌ Error al restaurar','err'); }
@@ -1721,6 +1724,7 @@ function autoBackup() {
       evidencias: JSON.parse(localStorage.getItem('solmit_evidencias') || '[]'),
       proyectos: JSON.parse(localStorage.getItem('solmit_proyectos') || '[]'),
       actsExtra: JSON.parse(localStorage.getItem('solmit_acts_extra') || '[]'),
+      ganttOvr: JSON.parse(localStorage.getItem('solmit_gantt_ovr') || '{}'),
     };
     localStorage.setItem('solmit_backup', JSON.stringify(data));
     localStorage.setItem('solmit_backup_ts', data.ts);
@@ -1743,6 +1747,9 @@ function restaurarDesdeBackup() {
   }
   if (!localStorage.getItem('solmit_acts_extra') && data.actsExtra?.length) {
     localStorage.setItem('solmit_acts_extra', JSON.stringify(data.actsExtra));
+  }
+  if (!localStorage.getItem('solmit_gantt_ovr') && data.ganttOvr && Object.keys(data.ganttOvr).length) {
+    localStorage.setItem('solmit_gantt_ovr', JSON.stringify(data.ganttOvr));
   }
   return true;
 }
@@ -1819,7 +1826,7 @@ function calcAvanceProyecto(proyId) {
   const acts = GANTT_ACTS.filter(a => !a.proyectoId || a.proyectoId === proyId);
   const totalH = acts.reduce((s,a) => s+(a.horas||a.cantidad||1), 0);
   const hechH  = acts.reduce((s,a) => {
-    const av = avanceRealAct(a.desc, a.avFijo);
+    const av = avanceRealAct(a.desc, a.avFijo, a._manualAv);
     return s + (av > 0 ? (a.horas||a.cantidad||1)*(av/100) : 0);
   }, 0);
   return totalH ? Math.round((hechH/totalH)*100) : 0;
@@ -1856,7 +1863,7 @@ function exportarCSV() {
   const filas = [
     ['Item','Actividad','Persona','Inicio Plan','Fin Plan','Horas','% Real','Estado'],
     ...lista.map(a => {
-      const av = avanceRealAct(a.desc, a.avFijo);
+      const av = avanceRealAct(a.desc, a.avFijo, a._manualAv);
       let fd = new Date('2026-06-10'), w = 0;
       while(w < a.fin-1){ fd.setDate(fd.getDate()+1); if(fd.getDay()!==0&&fd.getDay()!==6) w++; }
       let fi = new Date('2026-06-10'), wi = 0;
@@ -1885,7 +1892,7 @@ function renderHorasEquipo() {
     const eq = a.equipo || 'Sin Asignar';
     if (!equipos[eq]) equipos[eq] = {total:0, hechas:0};
     equipos[eq].total += (a.horas||a.cantidad||1);
-    const av = avanceRealAct(a.desc, a.avFijo);
+    const av = avanceRealAct(a.desc, a.avFijo, a._manualAv);
     equipos[eq].hechas += av > 0 ? (a.horas||a.cantidad||1)*(av/100) : 0;
   });
   const paletaPersonas = ['var(--cyan)','var(--green)','var(--yellow)','var(--blue)','var(--purple)','var(--orange)','var(--red)'];
@@ -2714,7 +2721,9 @@ function diaLaboral(n) {
   return d.toLocaleDateString('es-CL', {day:'2-digit', month:'2-digit', year:'2-digit'});
 }
 
-function avanceRealAct(desc, avFijo) {
+function avanceRealAct(desc, avFijo, manual) {
+  // Un % editado manualmente en la Carta Gantt tiene prioridad absoluta
+  if (manual && avFijo !== undefined) return avFijo;
   const kw = desc.toLowerCase().replace(/[áéíóúñ]/g, c => ({á:'a',é:'e',í:'i',ó:'o',ú:'u',ñ:'n'}[c]||c));
   // Solo reportes aprobados contribuyen al avance
   const aprobados = localReports.filter(r => r.estado === 'aprobado');
@@ -2737,7 +2746,8 @@ function getListaFiltrada() {
   if (filtroProy) lista = lista.filter(a => !a.proyectoId || a.proyectoId === filtroProy);
   if (filtroEq)   lista = lista.filter(a => a.equipo === filtroEq);
   if (filtroEstado) lista = lista.filter(a => {
-    const av = avanceRealAct(a.desc, a.avFijo);
+    if (a._manualEstado) return a._manualEstado === filtroEstado;
+    const av = avanceRealAct(a.desc, a.avFijo, a._manualAv);
     let d2 = new Date(PROYECTO_INICIO);
     let w = 0;
     while (w < (a.fin||1) - 1) { d2.setDate(d2.getDate()+1); if(d2.getDay()!==0&&d2.getDay()!==6) w++; }
@@ -2755,6 +2765,62 @@ function getListaFiltrada() {
 function cambiarEquipo(idx, val) {
   GANTT_ACTS[idx].equipo = val;
   renderGanttSeccion();
+}
+
+// ══════════════════════════════════════════════════════════
+// EDICIÓN MANUAL DE % Y ESTADO EN LA CARTA GANTT
+// Los cambios se guardan en el navegador (localStorage) y tienen
+// prioridad sobre el valor importado y los reportes aprobados.
+// ══════════════════════════════════════════════════════════
+const GANTT_OVR_KEY = 'solmit_gantt_ovr';
+function ganttOvrKey(a){ return (a.id||'') + '|' + (a.zona||''); }
+
+function cargarOverridesGantt(){
+  let ovr = {};
+  try { ovr = JSON.parse(localStorage.getItem(GANTT_OVR_KEY) || '{}'); } catch(e){}
+  GANTT_ACTS.forEach(a => {
+    const v = ovr[ganttOvrKey(a)];
+    if (!v) return;
+    if (v.av != null) { a.avFijo = v.av; a._manualAv = true; }
+    if (v.estado)     { a._manualEstado = v.estado; }
+  });
+}
+
+function guardarOverrideGantt(a){
+  let ovr = {};
+  try { ovr = JSON.parse(localStorage.getItem(GANTT_OVR_KEY) || '{}'); } catch(e){}
+  const k = ganttOvrKey(a);
+  const v = { av: a._manualAv ? a.avFijo : null, estado: a._manualEstado || null };
+  if (v.av == null && !v.estado) delete ovr[k]; else ovr[k] = v;
+  localStorage.setItem(GANTT_OVR_KEY, JSON.stringify(ovr));
+}
+
+function refrescarTrasEdicionGantt(){
+  renderGanttSeccion();
+  renderKPIs();
+  renderAvanceLocal();
+  renderProyectos();
+  renderHorasEquipo();
+}
+
+function editarAvanceGantt(idx, val){
+  const a = GANTT_ACTS[idx];
+  if (!a) return;
+  const v = Math.max(0, Math.min(100, parseInt(val) || 0));
+  a.avFijo = v;
+  a._manualAv = true;
+  guardarOverrideGantt(a);
+  refrescarTrasEdicionGantt();
+  toast('✏️ Avance de ' + a.id + ' fijado en ' + v + '%','ok');
+}
+
+function editarEstadoGantt(idx, val){
+  const a = GANTT_ACTS[idx];
+  if (!a) return;
+  a._manualEstado = val || null;
+  guardarOverrideGantt(a);
+  refrescarTrasEdicionGantt();
+  toast(val ? ('✏️ Estado de ' + a.id + ': ' + val) : ('Estado de ' + a.id + ' vuelve a automático'),'ok');
 }
 
 function renderGanttHeader() {
@@ -2811,7 +2877,7 @@ function renderGanttSeccion() {
 
   // ── Tarjetas KPI ──────────────────────────────────────
   const totalH  = lista.reduce((s,a) => s+(a.horas||a.cantidad||1), 0);
-  const hechH   = lista.reduce((s,a) => { const av=avanceRealAct(a.desc,a.avFijo); return s+(av>0?(a.horas||a.cantidad||1)*(av/100):0); }, 0);
+  const hechH   = lista.reduce((s,a) => { const av=avanceRealAct(a.desc,a.avFijo,a._manualAv); return s+(av>0?(a.horas||a.cantidad||1)*(av/100):0); }, 0);
   const avReal  = totalH ? Math.round((hechH/totalH)*100) : 0;
 
   // Convierte un número de día laboral a fecha real, contando desde el inicio del proyecto
@@ -2834,7 +2900,8 @@ function renderGanttSeccion() {
   const avPlan = totalH ? Math.round((planHoras/totalH)*100) : 0;
 
   const esAtrasada = a => {
-    const av = avanceRealAct(a.desc, a.avFijo);
+    if (a._manualEstado) return a._manualEstado === 'Atrasado';
+    const av = avanceRealAct(a.desc, a.avFijo, a._manualAv);
     if(av < 0 || av >= 100) return false;
     const hoyMid5 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     let fd=new Date('2026-06-10'), w=0;
@@ -2849,7 +2916,7 @@ function renderGanttSeccion() {
   };
   const atrasadas = lista.filter(esAtrasada).length;
   // "En plazo" excluye las atrasadas: solo actividades activas sin atraso
-  const enPlazo = lista.filter(a=>{ const av=avanceRealAct(a.desc,a.avFijo); return av>=0 && av<100 && !esAtrasada(a); }).length;
+  const enPlazo = lista.filter(a=>{ const av=avanceRealAct(a.desc,a.avFijo,a._manualAv); return av>=0 && av<100 && !esAtrasada(a); }).length;
 
   const el = id => document.getElementById(id);
   if(el('g-avplan'))   { el('g-avplan').textContent=avPlan+'%'; el('g-avplan-s').textContent='A la fecha '+hoy.toLocaleDateString('es-CL'); }
@@ -2861,7 +2928,7 @@ function renderGanttSeccion() {
   const sumas = {1:{sumH:0,horas:0,planH:0}, 2:{sumH:0,horas:0,planH:0}, 3:{sumH:0,horas:0,planH:0}};
   const hoyMidLT = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
   lista.forEach(a => {
-    const av  = avanceRealAct(a.desc, a.avFijo);
+    const av  = avanceRealAct(a.desc, a.avFijo, a._manualAv);
     const pct = av >= 0 ? av : 0;
     const cat = clasificarActividad(a.desc);
     const h   = (a.horas||a.cantidad||1);
@@ -2897,7 +2964,7 @@ function renderGanttDetalle(lista) {
   const hoy = new Date();
   tb.innerHTML = lista.map(a => {
     const globalIdx = GANTT_ACTS.indexOf(a);
-    const av = avanceRealAct(a.desc, a.avFijo);
+    const av = avanceRealAct(a.desc, a.avFijo, a._manualAv);
     let d2 = new Date(PROYECTO_INICIO);
     let w = 0;
     while (w < (a.fin||1) - 1) { d2.setDate(d2.getDate()+1); if(d2.getDay()!==0&&d2.getDay()!==6) w++; }
@@ -2906,12 +2973,16 @@ function renderGanttDetalle(lista) {
     const hoyMid = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     const atrasada = d2 < hoyMid && av < 100;
     const iniPasada = di3 < hoyMid;
-    const sc = av < 0 ? 'bgr' : av >= 100 ? 'bg' : (atrasada || (av === 0 && iniPasada)) ? 'by' : 'bb';
-    const label = av < 0 ? 'Pendiente' : av >= 100 ? 'Terminado' : atrasada ? 'Atrasado' : (av === 0 && iniPasada) ? 'Atrasado' : (av === 0) ? 'Pendiente' : 'En curso';
-    const avStr = av < 0 ? '—' : av + '%';
+    const labelAuto = av < 0 ? 'Pendiente' : av >= 100 ? 'Terminado' : atrasada ? 'Atrasado' : (av === 0 && iniPasada) ? 'Atrasado' : (av === 0) ? 'Pendiente' : 'En curso';
+    // El estado editado manualmente tiene prioridad sobre el calculado
+    const label = a._manualEstado || labelAuto;
+    const sc = label==='Pendiente' ? (av<0?'bgr':'bgr') : label==='Terminado' ? 'bg' : label==='Atrasado' ? 'by' : 'bb';
+    const barColor = label==='Terminado'?'var(--green)':label==='Atrasado'?'var(--yellow)':label==='Pendiente'?'var(--text3)':'var(--blue)';
     const eq = a.equipo || 'Sin Asignar';
     const eqOpts = ['Persona 1','Persona 2','Persona 3','Persona 4','Persona 5','Persona 6','Persona 7','Sin Asignar'].map(e =>
       `<option value="${e}"${e===eq?' selected':''}>${e}</option>`).join('');
+    const estOpts = ['','Pendiente','En curso','Atrasado','Terminado'].map(e =>
+      `<option value="${e}"${e===(a._manualEstado||'')?' selected':''}>${e||('Auto: '+labelAuto)}</option>`).join('');
     return `<tr>
       <td style="font-size:10px;color:var(--text3)">${a.id}</td>
       <td style="font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${a.desc}">${a.desc}</td>
@@ -2921,13 +2992,19 @@ function renderGanttDetalle(lista) {
       <td style="font-size:11px;text-align:center">${(a.horas||a.cantidad||1)}h</td>
       <td>
         <div style="display:flex;align-items:center;gap:5px">
-          <div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;min-width:60px">
-            <div style="height:100%;border-radius:3px;width:${av<0?0:av}%;background:${av>=100?'var(--green)':(atrasada||(av===0&&iniPasada))?'var(--yellow)':'var(--blue)'}"></div>
+          <div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;min-width:48px">
+            <div style="height:100%;border-radius:3px;width:${av<0?0:av}%;background:${barColor}"></div>
           </div>
-          <span style="font-size:11px;font-weight:700;color:${av<0?'var(--text3)':av>=100?'var(--green)':(atrasada||(av===0&&iniPasada))?'var(--yellow)':'var(--blue)'};min-width:30px">${avStr}</span>
+          <input type="number" min="0" max="100" value="${av<0?'':av}" placeholder="—"
+            onchange="editarAvanceGantt(${globalIdx},this.value)"
+            style="width:46px;background:var(--card2);border:1px solid var(--border);border-radius:4px;color:${barColor};padding:1px 3px;font-size:11px;font-weight:700;text-align:right"
+            title="Editar % de avance manualmente${a._manualAv?' (valor manual)':''}">
+          <span style="font-size:10px;color:var(--text3)">%${a._manualAv?' ✎':''}</span>
         </div>
       </td>
-      <td><span class="b ${sc}" style="font-size:10px">${label}</span></td>
+      <td><select onchange="editarEstadoGantt(${globalIdx},this.value)" class="b ${sc}"
+        style="font-size:10px;border:1px solid var(--border);border-radius:6px;padding:1px 4px;cursor:pointer;background:var(--card2)"
+        title="Estado (Auto se calcula por % y fechas; elige uno para fijarlo manualmente)">${estOpts}</select></td>
     </tr>`;
   }).join('');
 }
@@ -2939,11 +3016,11 @@ function renderKPIs() {
   // Avance real desde actividades del Gantt (por horas ponderadas)
   const totalHoras = GANTT_ACTS.reduce((s,a)=>s+(a.horas||a.cantidad||1), 0);
   const horasHechas = GANTT_ACTS.reduce((s,a)=>{
-    const av = avanceRealAct(a.desc, a.avFijo);
+    const av = avanceRealAct(a.desc, a.avFijo, a._manualAv);
     return s + (av > 0 ? (a.horas||a.cantidad||1) * (av/100) : 0);
   }, 0);
   const avProm = totalHoras ? Math.round((horasHechas/totalHoras)*100) : 0;
-  const term   = GANTT_ACTS.filter(a=>avanceRealAct(a.desc,a.avFijo)>=100).length;
+  const term   = GANTT_ACTS.filter(a=>avanceRealAct(a.desc,a.avFijo,a._manualAv)>=100).length;
 
   // Bloqueados y reportes hoy desde localReports
   const bloq   = localReports.filter(r=>(r.Bloqueo||'').indexOf('Bloqueado')===0).length;
@@ -2971,7 +3048,8 @@ function renderKPIs() {
 
   // Atrasadas: fin planificado < hoy con av<100, O inicio pasado con av===0
   const esAtrasadaK = a => {
-    const av = avanceRealAct(a.desc, a.avFijo);
+    if (a._manualEstado) return a._manualEstado === 'Atrasado';
+    const av = avanceRealAct(a.desc, a.avFijo, a._manualAv);
     if(av < 0 || av >= 100) return false;
     let fd = new Date('2026-06-10'), w=0;
     while(w<(a.fin||1)-1){fd.setDate(fd.getDate()+1);if(fd.getDay()!==0&&fd.getDay()!==6)w++;}
@@ -2988,7 +3066,7 @@ function renderKPIs() {
 
   // "En plazo" excluye las atrasadas: solo actividades activas sin atraso
   const enPlazo = GANTT_ACTS.filter(a=>{
-    const av = avanceRealAct(a.desc, a.avFijo);
+    const av = avanceRealAct(a.desc, a.avFijo, a._manualAv);
     return av >= 0 && av < 100 && !esAtrasadaK(a);
   }).length;
 
@@ -3028,7 +3106,7 @@ function renderAvanceLocal() {
   const sumas = {1:{sumH:0,horas:0,planH:0}, 2:{sumH:0,horas:0,planH:0}, 3:{sumH:0,horas:0,planH:0}};
   GANTT_ACTS.forEach(a => {
     // Misma función que usa Carta Gantt/Dashboard KPIs, para que ambas pantallas coincidan
-    const avRaw = avanceRealAct(a.desc, a.avFijo);
+    const avRaw = avanceRealAct(a.desc, a.avFijo, a._manualAv);
     const av = avRaw < 0 ? 0 : avRaw; // pendiente cuenta como 0% para el promedio ponderado
     const cat = clasificarActividad(a.desc);
     const h = (a.horas||a.cantidad||1);
