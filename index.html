@@ -458,188 +458,8 @@ textarea{resize:vertical;min-height:68px}
             <div class="fr">
               <div class="fg">
                 <label class="fl">Zona de trabajo <span style="color:var(--red)">*</span></label>
-                <select name="Zona" required>
+                <select name="Zona" id="frm-zona" required onchange="actualizarActividades()">
                   <option value="">Seleccionar…</option>
-                  <optgroup label="Exterior">
-                  <option value="Jaula generador (Exterior)">Jaula generador (Exterior)</option>
-                  <option value="Luces perimetrales (Exterior)">Luces perimetrales (Exterior)</option>
-                  <option value="Patio Maniobras (Exterior)">Patio Maniobras (Exterior)</option>
-                  <option value="Sala electrica (Exterior)">Sala electrica (Exterior)</option>
-                  <option value="Jardin exterior (Jardin)">Jardin exterior (Jardin)</option>
-                  </optgroup>
-                  <optgroup label="Jardin">
-                  <option value="Pasillo 1 Parrillas (Jardin)">Pasillo 1 Parrillas (Jardin)</option>
-                  <option value="Pasillo 2 Maquinaria (Jardin)">Pasillo 2 Maquinaria (Jardin)</option>
-                  <option value="Pasillo 3 Herramientas (Jardin)">Pasillo 3 Herramientas (Jardin)</option>
-                  <option value="Pasillo 4 Mascotas (Jardin)">Pasillo 4 Mascotas (Jardin)</option>
-                  <option value="Plantas (Jardin)">Plantas (Jardin)</option>
-                  </optgroup>
-                  <optgroup label="Patio Constructor">
-                  <option value="Caseta de control (Patio Constructor)">Caseta de control (Patio Constructor)</option>
-                  <option value="Dimensionado (Patio Constructor)">Dimensionado (Patio Constructor)</option>
-                  <option value="Pasillo 1 Obra gruesa (Patio Constructor)">Pasillo 1 Obra gruesa (Patio Constructor)</option>
-                  <option value="Pasillo 2 Maderas (Patio Constructor)">Pasillo 2 Maderas (Patio Constructor)</option>
-                  <option value="Pasillo 3  Tableros (Patio Constructor)">Pasillo 3  Tableros (Patio Constructor)</option>
-                  <option value="Pasillo fondo (Patio Constructor)">Pasillo fondo (Patio Constructor)</option>
-                  <option value="Pasillo frente (Patio Constructor)">Pasillo frente (Patio Constructor)</option>
-                  <option value="Acceso Patio constructor (Sala de venta)">Acceso Patio constructor (Sala de venta)</option>
-                  <option value="(26) TDAyF Patio Constructor PC_Patio Constructor">(26) TDAyF Patio Constructor PC_Patio Constructor</option>
-                  <option value="(27) TDAyF Patio Constructor PC_Patio Constructor">(27) TDAyF Patio Constructor PC_Patio Constructor</option>
-                  <option value="(28) TDA Dimensionado_Patio Constructor">(28) TDA Dimensionado_Patio Constructor</option>
-                  <option value="(29) Captador de polvo_Patio Constructor">(29) Captador de polvo_Patio Constructor</option>
-                  <option value="(SN) TG Electromovilidad_Patio Constructor">(SN) TG Electromovilidad_Patio Constructor</option>
-                  </optgroup>
-                  <optgroup label="Sala de venta">
-                  <option value="Centro de color (Sala de venta)">Centro de color (Sala de venta)</option>
-                  <option value="Pasillo 01 Temporada (Sala de venta)">Pasillo 01 Temporada (Sala de venta)</option>
-                  <option value="Pasillo 02 Temporada (Sala de venta)">Pasillo 02 Temporada (Sala de venta)</option>
-                  <option value="Pasillo 03 Temporada (Sala de venta)">Pasillo 03 Temporada (Sala de venta)</option>
-                  <option value="Pasillo 04 Temporada (Sala de venta)">Pasillo 04 Temporada (Sala de venta)</option>
-                  <option value="Pasillo 05 Temporada (Sala de venta)">Pasillo 05 Temporada (Sala de venta)</option>
-                  <option value="Pasillo 06 Menaje (Sala de venta)">Pasillo 06 Menaje (Sala de venta)</option>
-                  <option value="Pasillo 07 Menaje (Sala de venta)">Pasillo 07 Menaje (Sala de venta)</option>
-                  <option value="Pasillo 08 Menaje (Sala de venta)">Pasillo 08 Menaje (Sala de venta)</option>
-                  <option value="Pasillo 09 Menaje (Sala de venta)">Pasillo 09 Menaje (Sala de venta)</option>
-                  <option value="Pasillo 10 Menaje (Sala de venta)">Pasillo 10 Menaje (Sala de venta)</option>
-                  <option value="Pasillo 11 Menaje (Sala de venta)">Pasillo 11 Menaje (Sala de venta)</option>
-                  <option value="Pasillo 12 Menaje (Sala de venta)">Pasillo 12 Menaje (Sala de venta)</option>
-                  <option value="Pasillo 13 Aseo (Sala de venta)">Pasillo 13 Aseo (Sala de venta)</option>
-                  <option value="Pasillo 15 Muebles (Sala de venta)">Pasillo 15 Muebles (Sala de venta)</option>
-                  <option value="Pasillo 17 Muebles (Sala de venta)">Pasillo 17 Muebles (Sala de venta)</option>
-                  <option value="Pasillo 19 Muebles (Sala de venta)">Pasillo 19 Muebles (Sala de venta)</option>
-                  <option value="Pasillo 20 Menaje (Sala de venta)">Pasillo 20 Menaje (Sala de venta)</option>
-                  <option value="Pasillo 21 Textil (Sala de venta)">Pasillo 21 Textil (Sala de venta)</option>
-                  <option value="Pasillo 22 Iluminacion (Sala de venta)">Pasillo 22 Iluminacion (Sala de venta)</option>
-                  <option value="Pasillo 23 Decomuro (Sala de venta)">Pasillo 23 Decomuro (Sala de venta)</option>
-                  <option value="Pasillo 24 Iluminacion (Sala de venta)">Pasillo 24 Iluminacion (Sala de venta)</option>
-                  <option value="Pasillo 25 Alfombras (Sala de venta)">Pasillo 25 Alfombras (Sala de venta)</option>
-                  <option value="Pasillo 26 Ceramicas (Sala de venta)">Pasillo 26 Ceramicas (Sala de venta)</option>
-                  <option value="Pasillo 27 Pisos (Sala de venta)">Pasillo 27 Pisos (Sala de venta)</option>
-                  <option value="Pasillo 28 Ceramicas (Sala de venta)">Pasillo 28 Ceramicas (Sala de venta)</option>
-                  <option value="Pasillo 29 Baño (Sala de venta)">Pasillo 29 Baño (Sala de venta)</option>
-                  <option value="Pasillo 30 Adhesivos (Sala de venta)">Pasillo 30 Adhesivos (Sala de venta)</option>
-                  <option value="Pasillo 31 Baño (Sala de venta)">Pasillo 31 Baño (Sala de venta)</option>
-                  <option value="Pasillo 32 Pinturas (Sala de venta)">Pasillo 32 Pinturas (Sala de venta)</option>
-                  <option value="Pasillo 33 Baño (Sala de venta)">Pasillo 33 Baño (Sala de venta)</option>
-                  <option value="Pasillo 34 Pinturas (Sala de venta)">Pasillo 34 Pinturas (Sala de venta)</option>
-                  <option value="Pasillo 35 Gasfiteria (Sala de venta)">Pasillo 35 Gasfiteria (Sala de venta)</option>
-                  <option value="Pasillo 36 Casa inteligente (Sala de venta)">Pasillo 36 Casa inteligente (Sala de venta)</option>
-                  <option value="Pasillo 37 Seguridad (Sala de venta)">Pasillo 37 Seguridad (Sala de venta)</option>
-                  <option value="Pasillo 38 Electricidad (Sala de venta)">Pasillo 38 Electricidad (Sala de venta)</option>
-                  <option value="Pasillo 41 Puertas (Sala de venta)">Pasillo 41 Puertas (Sala de venta)</option>
-                  <option value="Pasillo 43 Molduras (Sala de venta)">Pasillo 43 Molduras (Sala de venta)</option>
-                  <option value="Pasillo 45 Fijaciones (Sala de venta)">Pasillo 45 Fijaciones (Sala de venta)</option>
-                  <option value="Pasillo 46 Embalaje (Sala de venta)">Pasillo 46 Embalaje (Sala de venta)</option>
-                  <option value="Pasillo 47 Herramientas (Sala de venta)">Pasillo 47 Herramientas (Sala de venta)</option>
-                  <option value="Pasillo 48 Maquinaria (Sala de venta)">Pasillo 48 Maquinaria (Sala de venta)</option>
-                  <option value="Pasillo 49 Maquinaria (Sala de venta)">Pasillo 49 Maquinaria (Sala de venta)</option>
-                  <option value="Pasillo 50 Herramientas (Sala de venta)">Pasillo 50 Herramientas (Sala de venta)</option>
-                  <option value="Pasillo 51 Maquinaria (Sala de venta)">Pasillo 51 Maquinaria (Sala de venta)</option>
-                  <option value="Pasillo 52 Automovil (Sala de venta)">Pasillo 52 Automovil (Sala de venta)</option>
-                  <option value="Pasillo 53 Automovil (Sala de venta)">Pasillo 53 Automovil (Sala de venta)</option>
-                  <option value="Pasillo cajas (Sala de venta)">Pasillo cajas (Sala de venta)</option>
-                  <option value="Pasillo central (Sala de venta)">Pasillo central (Sala de venta)</option>
-                  <option value="Pasillo derecha (Sala de venta)">Pasillo derecha (Sala de venta)</option>
-                  <option value="Pasillo fondo (Sala de venta)">Pasillo fondo (Sala de venta)</option>
-                  <option value="Pasillo izquierda (Sala de venta)">Pasillo izquierda (Sala de venta)</option>
-                  <option value="Pasillo temporada (Sala de venta)">Pasillo temporada (Sala de venta)</option>
-                  <option value="(30) TD Enchufes alfombras_Sala de venta">(30) TD Enchufes alfombras_Sala de venta</option>
-                  <option value="(31) TDA Iluminacion_Sala de venta">(31) TDA Iluminacion_Sala de venta</option>
-                  <option value="(SN) TD Equipos_Sala de venta">(SN) TD Equipos_Sala de venta</option>
-                  <option value="(SN) TDF Pinturas_Sala de venta">(SN) TDF Pinturas_Sala de venta</option>
-                  </optgroup>
-                  <optgroup label="Trascaja">
-                  <option value="Baño accesible (Trascaja)">Baño accesible (Trascaja)</option>
-                  <option value="Baño clientes hombres (Trascaja)">Baño clientes hombres (Trascaja)</option>
-                  <option value="Baño clientes mujeres (Trascaja)">Baño clientes mujeres (Trascaja)</option>
-                  <option value="Baño personal (Trascaja)">Baño personal (Trascaja)</option>
-                  <option value="Bodega centro de cajas (Trascaja)">Bodega centro de cajas (Trascaja)</option>
-                  <option value="Bodega retiro en tienda (Trascaja)">Bodega retiro en tienda (Trascaja)</option>
-                  <option value="Cafeteria (Trascaja)">Cafeteria (Trascaja)</option>
-                  <option value="Centro de cajas (Trascaja)">Centro de cajas (Trascaja)</option>
-                  <option value="Circulo de especialistas (Trascaja)">Circulo de especialistas (Trascaja)</option>
-                  <option value="Gerente de tienda (Trascaja)">Gerente de tienda (Trascaja)</option>
-                  <option value="Of. jefes de departamentos (Trascaja)">Of. jefes de departamentos (Trascaja)</option>
-                  <option value="Pasillo trascajas (Trascaja)">Pasillo trascajas (Trascaja)</option>
-                  <option value="Post venta (Trascaja)">Post venta (Trascaja)</option>
-                  <option value="Recicladora (Trascaja)">Recicladora (Trascaja)</option>
-                  <option value="Sala de sistemas B (Trascaja)">Sala de sistemas B (Trascaja)</option>
-                  <option value="Sala electrica (Trascaja)">Sala electrica (Trascaja)</option>
-                  <option value="Servicios profesionales (Trascaja)">Servicios profesionales (Trascaja)</option>
-                  <option value="(32) TDA Cafeteria CF_Trascaja">(32) TDA Cafeteria CF_Trascaja</option>
-                  <option value="(33) TDA Local 2 L2_Trascaja">(33) TDA Local 2 L2_Trascaja</option>
-                  <option value="(35) TDAyF Trascajas_Trascaja">(35) TDAyF Trascajas_Trascaja</option>
-                  <option value="(36) TDAyF Trascajas gab 2_Trascaja">(36) TDAyF Trascajas gab 2_Trascaja</option>
-                  <option value="(37) TDAyF Trascajas gab 3_Trascaja">(37) TDAyF Trascajas gab 3_Trascaja</option>
-                  <option value="(38) TCC Trascaja_Trascaja">(38) TCC Trascaja_Trascaja</option>
-                  <option value="(SN) TD Comp B_Trascaja">(SN) TD Comp B_Trascaja</option>
-                  </optgroup>
-                  <optgroup label="Trastienda">
-                  <option value="Aseo (Trastienda)">Aseo (Trastienda)</option>
-                  <option value="Baño hombres (Trastienda)">Baño hombres (Trastienda)</option>
-                  <option value="Baño mujeres (Trastienda)">Baño mujeres (Trastienda)</option>
-                  <option value="Bodega (Trastienda)">Bodega (Trastienda)</option>
-                  <option value="Bodega segundo piso (Trastienda)">Bodega segundo piso (Trastienda)</option>
-                  <option value="Camarines (Trastienda)">Camarines (Trastienda)</option>
-                  <option value="Casino cocina (Trastienda)">Casino cocina (Trastienda)</option>
-                  <option value="Escalera segundo piso (Trastienda)">Escalera segundo piso (Trastienda)</option>
-                  <option value="Of. Abastecimiento (Trastienda)">Of. Abastecimiento (Trastienda)</option>
-                  <option value="Of. Asistente social (Trastienda)">Of. Asistente social (Trastienda)</option>
-                  <option value="Of. CCTV (Trastienda)">Of. CCTV (Trastienda)</option>
-                  <option value="Of. Control 11 (Trastienda)">Of. Control 11 (Trastienda)</option>
-                  <option value="Of. Diseño de tienda (Trastienda)">Of. Diseño de tienda (Trastienda)</option>
-                  <option value="Of. EIC (Trastienda)">Of. EIC (Trastienda)</option>
-                  <option value="Of. E-learning (Trastienda)">Of. E-learning (Trastienda)</option>
-                  <option value="Of. Mantencion (Trastienda)">Of. Mantencion (Trastienda)</option>
-                  <option value="Of. Prevencion (Trastienda)">Of. Prevencion (Trastienda)</option>
-                  <option value="Of. Recpecion y despacho (Trastienda)">Of. Recpecion y despacho (Trastienda)</option>
-                  <option value="Of. Recursos humanos (Trastienda)">Of. Recursos humanos (Trastienda)</option>
-                  <option value="Pasillo primer piso (Trastienda)">Pasillo primer piso (Trastienda)</option>
-                  <option value="Pasillo segundo piso (Trastienda)">Pasillo segundo piso (Trastienda)</option>
-                  <option value="Recepcion y despacho (Trastienda)">Recepcion y despacho (Trastienda)</option>
-                  <option value="Sala de capacitacion (Trastienda)">Sala de capacitacion (Trastienda)</option>
-                  <option value="Sala de descanso (Trastienda)">Sala de descanso (Trastienda)</option>
-                  <option value="Sala de sistemas A (Trastienda)">Sala de sistemas A (Trastienda)</option>
-                  <option value="Sala de termos (Trastienda)">Sala de termos (Trastienda)</option>
-                  <option value="Sala electrica (Trastienda)">Sala electrica (Trastienda)</option>
-                  <option value="Sala Primeros auxilios (Trastienda)">Sala Primeros auxilios (Trastienda)</option>
-                  <option value="Tesoreria (Trastienda)">Tesoreria (Trastienda)</option>
-                  <option value="(20) TD Trastienda_Trastienda">(20) TD Trastienda_Trastienda</option>
-                  <option value="(21) TD Trastienda gab 2_Trastienda">(21) TD Trastienda gab 2_Trastienda</option>
-                  <option value="(22) TD Trastienda gab 3_Trastienda">(22) TD Trastienda gab 3_Trastienda</option>
-                  <option value="(23) TCL_Trastienda">(23) TCL_Trastienda</option>
-                  <option value="(24) TCC 01_Trastienda">(24) TCC 01_Trastienda</option>
-                  <option value="(25) Cargador de baterias_Trastienda">(25) Cargador de baterias_Trastienda</option>
-                  <option value="(SN) Tablero Servicios Altillo_Trastienda">(SN) Tablero Servicios Altillo_Trastienda</option>
-                  <option value="(SN) TCC Altillo_Trastienda">(SN) TCC Altillo_Trastienda</option>
-                  <option value="(SN) TD Comp A_Trastienda">(SN) TD Comp A_Trastienda</option>
-                  <option value="(SN) TDAyF Altillo AL_Trastienda">(SN) TDAyF Altillo AL_Trastienda</option>
-                  <option value="(SN) TDAyF Ascensor_Trastienda">(SN) TDAyF Ascensor_Trastienda</option>
-                  <option value="(SN) TDAyF Casino CA_Trastienda">(SN) TDAyF Casino CA_Trastienda</option>
-                  </optgroup>
-                  <optgroup label="Sala Electrica">
-                  <option value="(01) Tablero Auxiliar General_Sala Electrica">(01) Tablero Auxiliar General_Sala Electrica</option>
-                  <option value="(02) Microblend_Sala Electrica">(02) Microblend_Sala Electrica</option>
-                  <option value="(03) TDAyF Emerg. Clima CL_Sala Electrica">(03) TDAyF Emerg. Clima CL_Sala Electrica</option>
-                  <option value="(04) TDAyF Norm. Clima CL_Sala Electrica">(04) TDAyF Norm. Clima CL_Sala Electrica</option>
-                  <option value="(05) Servicios Emerg._Sala Electrica">(05) Servicios Emerg._Sala Electrica</option>
-                  <option value="(06) Servicios Emerg. gab 2_Sala Electrica">(06) Servicios Emerg. gab 2_Sala Electrica</option>
-                  <option value="(07) Servicios Emerg. gab 3_Sala Electrica">(07) Servicios Emerg. gab 3_Sala Electrica</option>
-                  <option value="(08) TGAux Norm. 1_Sala Electrica">(08) TGAux Norm. 1_Sala Electrica</option>
-                  <option value="(09) TGAux Norm. Clima Locales_Sala Electrica">(09) TGAux Norm. Clima Locales_Sala Electrica</option>
-                  <option value="(10) Barras Neutros y Tierras_Sala Electrica">(10) Barras Neutros y Tierras_Sala Electrica</option>
-                  <option value="(11) Tablero Auxiliar Norm. Nº2_Sala Electrica">(11) Tablero Auxiliar Norm. Nº2_Sala Electrica</option>
-                  <option value="(12) Tablero sin informacion_Sala Electrica">(12) Tablero sin informacion_Sala Electrica</option>
-                  <option value="(13) Banco condensadores_Sala Electrica">(13) Banco condensadores_Sala Electrica</option>
-                  <option value="(14) Banco condensadores gab 2_Sala Electrica">(14) Banco condensadores gab 2_Sala Electrica</option>
-                  <option value="(15) TCC - Sala Electrica_Sala Electrica">(15) TCC - Sala Electrica_Sala Electrica</option>
-                  <option value="(16) Tablero TTA_Sala Electrica">(16) Tablero TTA_Sala Electrica</option>
-                  <option value="(SN) Barras sistema FV_Sala Electrica">(SN) Barras sistema FV_Sala Electrica</option>
-                  <option value="(SN) TDF UGF_Sala Electrica">(SN) TDF UGF_Sala Electrica</option>
-                  </optgroup>
-                  <optgroup label="Otros">
-                  <option value="OTROS NO CONSIDERADOSC(DETALLAR)">OTROS NO CONSIDERADOSC(DETALLAR)</option>
-                  </optgroup>
                 </select>
               </div>
               <div class="fg">
@@ -1779,15 +1599,34 @@ function poblarSelectoresProy() {
 }
 
 function actualizarActividades() {
+  // Zonas y actividades se generan desde la Carta Gantt (GANTT_ACTS),
+  // así el formulario siempre refleja el plan vigente.
   const proyId = document.getElementById('frm-proyecto')?.value;
+  const selZona = document.getElementById('frm-zona');
   const sel = document.getElementById('frm-actividad');
   if (!sel) return;
   const acts = proyId
     ? GANTT_ACTS.filter(a => !a.proyectoId || a.proyectoId === proyId)
     : GANTT_ACTS;
-  const unique = [...new Set(acts.map(a => a.desc))];
+
+  // Poblar zonas (únicas, ordenadas), conservando la selección actual
+  if (selZona) {
+    const zonaActual = selZona.value;
+    const zonas = [...new Set(acts.map(a => (a.zona||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+    selZona.innerHTML = '<option value="">Seleccionar…</option>' +
+      zonas.map(z => `<option value="${z.replace(/"/g,'&quot;')}"${z===zonaActual?' selected':''}>${z}</option>`).join('') +
+      `<option value="Otra zona"${zonaActual==='Otra zona'?' selected':''}>Otra zona (describir en observaciones)</option>`;
+  }
+
+  // Actividades: si hay zona elegida, mostrar solo las de esa zona
+  const zonaSel = selZona?.value || '';
+  const filtradas = (zonaSel && zonaSel !== 'Otra zona')
+    ? acts.filter(a => (a.zona||'').trim() === zonaSel)
+    : acts;
+  const actividadActual = sel.value;
+  const unique = [...new Set(filtradas.map(a => a.desc))];
   sel.innerHTML = '<option value="">Seleccionar…</option>' +
-    unique.map(d => `<option>${d}</option>`).join('') +
+    unique.map(d => `<option${d===actividadActual?' selected':''}>${d}</option>`).join('') +
     '<option>Otra actividad (describir en observaciones)</option>';
 }
 
