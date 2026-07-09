@@ -3157,24 +3157,26 @@ function processSync(json, status){
       const normalized = json.data.map((r,i) => {
         const idRep = r.ID_Reporte || r[''] || ('FORM-'+Date.now()+'-'+i);
         const local = localReports.find(lr=>lr.ID_Reporte===idRep);
-        const avanceSheets = String(parseFloat(r.Avance || r['Avance_Repo'] || r['% de avance de esta actividad hoy'] || 0) * (parseFloat(r['% de avance de esta actividad hoy']) <= 10 ? 10 : 1));
+        // La hoja Reportes_Terreno usa encabezados legacy (ID_Proyecto, Fecha_Reporte,
+        // Avance_Reportado, Materiales_Usados=zona, Problema_Bloqueo), por eso los alias extra.
+        const avanceSheets = String(parseFloat(r.Avance || r['Avance_Repo'] || r['Avance_Reportado'] || r['% de avance de esta actividad hoy'] || 0) * (parseFloat(r['% de avance de esta actividad hoy']) <= 10 ? 10 : 1));
         return {
           ID_Reporte:   idRep,
           Trabajador:   r.Trabajador || r['Tu nombre completo'] || '',
-          Proyecto:     normalizarProyecto(r.Proyecto || r['Proyecto en el que trabajas'] || ''),
-          Zona:         r.Zona       || r['Zona de trabajo'] || '',
+          Proyecto:     normalizarProyecto(r.Proyecto || r['ID_Proyecto'] || r['Proyecto en el que trabajas'] || ''),
+          Zona:         r.Zona       || r['Zona de trabajo'] || r['Materiales_Usados'] || '',
           Actividad:    r.Actividad  || r['Actividad realizada'] || r['ID_Actividad'] || '',
-          Fecha:        r.Fecha      || r['Fecha_Report'] || r['Marca temporal'] || '',
+          Fecha:        r.Fecha      || r['Fecha_Report'] || r['Fecha_Reporte'] || r['Marca temporal'] || '',
           // Si el avance fue editado manualmente en el ERP, esa edición tiene prioridad sobre lo que traiga Sheets
           Avance:       local && local._avanceEditado ? String(local.Avance) : avanceSheets,
           Observaciones:r.Observaciones || r['Observación'] || r['Observaciones (opcional)'] || '',
           FotoURL:      r.FotoURL    || r['Foto_URL'] || r['Sube Fotos del trabajo'] || '',
-          Bloqueo:      r.Bloqueo    || r['Problema_Blo'] || r['¿Hay algún problema o bloqueo?'] || '',
+          Bloqueo:      r.Bloqueo    || r['Problema_Blo'] || r['Problema_Bloqueo'] || r['¿Hay algún problema o bloqueo?'] || '',
           Fuente:       r.Fuente || 'Google Forms',
-          // Preservar estado de validación si ya existe localmente
           // Sheets es la fuente de verdad compartida entre navegadores;
-          // el estado local solo aplica si Sheets aún no tiene valor
-          estado:       r.estado || local?.estado || 'pendiente',
+          // el estado local solo aplica si Sheets aún no tiene valor.
+          // (En la hoja legacy la aprobación queda en la columna 'Estado'.)
+          estado:       r.estado || r.Estado || local?.estado || 'pendiente',
           _avanceEditado: local?._avanceEditado || false
         };
       });
