@@ -3172,7 +3172,9 @@ function processSync(json, status){
           Bloqueo:      r.Bloqueo    || r['Problema_Blo'] || r['¿Hay algún problema o bloqueo?'] || '',
           Fuente:       r.Fuente || 'Google Forms',
           // Preservar estado de validación si ya existe localmente
-          estado:       local?.estado || r.estado || 'pendiente',
+          // Sheets es la fuente de verdad compartida entre navegadores;
+          // el estado local solo aplica si Sheets aún no tiene valor
+          estado:       r.estado || local?.estado || 'pendiente',
           _avanceEditado: local?._avanceEditado || false
         };
       });
