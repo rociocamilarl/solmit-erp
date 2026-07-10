@@ -457,14 +457,17 @@ textarea{resize:vertical;min-height:68px}
             <div class="form-section-title">Trabajo realizado</div>
             <div class="fr">
               <div class="fg">
-                <label class="fl">Zona de trabajo <span style="color:var(--red)">*</span></label>
-                <select name="Zona" id="frm-zona" required onchange="actualizarActividades()">
+                <label class="fl">Item <span style="color:var(--red)">*</span></label>
+                <select id="frm-item" required onchange="itemSeleccionado()">
                   <option value="">Seleccionar…</option>
                 </select>
+                <input type="hidden" name="Zona" id="frm-zona-hidden">
               </div>
               <div class="fg">
                 <label class="fl">Actividad realizada <span style="color:var(--red)">*</span></label>
-                <select name="Actividad" id="frm-actividad" required></select>
+                <select name="Actividad" id="frm-actividad" required>
+                  <option value="">— Elige primero el item —</option>
+                </select>
               </div>
             </div>
 
@@ -1600,35 +1603,53 @@ function poblarSelectoresProy() {
 }
 
 function actualizarActividades() {
-  // Zonas y actividades se generan desde la Carta Gantt (GANTT_ACTS),
-  // así el formulario siempre refleja el plan vigente.
+  // El formulario se maneja por ITEM: al elegir el item de la Carta Gantt,
+  // la actividad se completa sola y la zona se guarda oculta.
   const proyId = document.getElementById('frm-proyecto')?.value;
-  const selZona = document.getElementById('frm-zona');
+  const selItem = document.getElementById('frm-item');
   const sel = document.getElementById('frm-actividad');
-  if (!sel) return;
+  if (!selItem || !sel) return;
   const acts = proyId
     ? GANTT_ACTS.filter(a => !a.proyectoId || a.proyectoId === proyId)
     : GANTT_ACTS;
+  window._frmActs = acts; // referencia usada por itemSeleccionado()
 
-  // Poblar zonas (únicas, ordenadas), conservando la selección actual
-  if (selZona) {
-    const zonaActual = selZona.value;
-    const zonas = [...new Set(acts.map(a => (a.zona||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
-    selZona.innerHTML = '<option value="">Seleccionar…</option>' +
-      zonas.map(z => `<option value="${z.replace(/"/g,'&quot;')}"${z===zonaActual?' selected':''}>${z}</option>`).join('') +
-      `<option value="Otra zona"${zonaActual==='Otra zona'?' selected':''}>Otra zona (describir en observaciones)</option>`;
+  const itemActual = selItem.value;
+  selItem.innerHTML = '<option value="">Seleccionar…</option>' +
+    acts.map((a, i) =>
+      `<option value="${i}"${String(i)===itemActual?' selected':''}>${a.id} · ${a.zona}</option>`
+    ).join('') +
+    `<option value="otro"${itemActual==='otro'?' selected':''}>Otro / actividad no listada</option>`;
+  itemSeleccionado();
+}
+
+function itemSeleccionado() {
+  const selItem = document.getElementById('frm-item');
+  const sel = document.getElementById('frm-actividad');
+  const zonaHidden = document.getElementById('frm-zona-hidden');
+  if (!selItem || !sel) return;
+  const acts = window._frmActs || GANTT_ACTS;
+  const v = selItem.value;
+
+  if (v === '') {
+    sel.innerHTML = '<option value="">— Elige primero el item —</option>';
+    if (zonaHidden) zonaHidden.value = '';
+    return;
   }
-
-  // Actividades: si hay zona elegida, mostrar solo las de esa zona
-  const zonaSel = selZona?.value || '';
-  const filtradas = (zonaSel && zonaSel !== 'Otra zona')
-    ? acts.filter(a => (a.zona||'').trim() === zonaSel)
-    : acts;
-  const actividadActual = sel.value;
-  const unique = [...new Set(filtradas.map(a => a.desc))];
-  sel.innerHTML = '<option value="">Seleccionar…</option>' +
-    unique.map(d => `<option${d===actividadActual?' selected':''}>${d}</option>`).join('') +
-    '<option>Otra actividad (describir en observaciones)</option>';
+  if (v === 'otro') {
+    // Actividad libre: lista completa de actividades únicas
+    const unique = [...new Set(acts.map(a => a.desc))];
+    sel.innerHTML = '<option value="">Seleccionar…</option>' +
+      unique.map(d => `<option>${d}</option>`).join('') +
+      '<option>Otra actividad (describir en observaciones)</option>';
+    if (zonaHidden) zonaHidden.value = '';
+    return;
+  }
+  const a = acts[parseInt(v)];
+  if (!a) return;
+  // Actividad identificada automáticamente según el item elegido
+  sel.innerHTML = `<option value="${a.desc.replace(/"/g,'&quot;')}" selected>${a.id} · ${a.desc}</option>`;
+  if (zonaHidden) zonaHidden.value = a.zona || '';
 }
 
 // ── AUTO-BACKUP ─────────────────────────────────────────────────
