@@ -3310,6 +3310,9 @@ function processSync(json, status){
 // ══════════════════════════
 // RENDER HISTORIAL
 // ══════════════════════════
+// Escapa texto externo (reportes de Sheets/Form) antes de insertarlo con innerHTML
+function escHTML(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 function fmtFecha(f){
   if(!f||f==='—') return '—';
   try {
@@ -3360,8 +3363,8 @@ function renderHist(page){
     return `<tr id="hist-row-${id}">
       <td style="font-size:10px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text3)" title="${proy?.nombre||r.Proyecto||'—'}">${proyCorto}</td>
       <td style="font-size:11px;white-space:nowrap">${fmtFecha(r.Fecha)}</td>
-      <td style="font-size:11px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.Trabajador||'—').split(' ')[0]}</td>
-      <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.Actividad||'—'}">${r.Actividad||'—'}</td>
+      <td style="font-size:11px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHTML((r.Trabajador||'—').split(' ')[0])}</td>
+      <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHTML(r.Actividad||'—')}">${escHTML(r.Actividad||'—')}</td>
       <td>
         <div style="display:flex;align-items:center;gap:4px">
           <input type="number" min="0" max="100" value="${r.Avance||0}"
@@ -3464,9 +3467,9 @@ function renderDashRep(){
     return `<tr>
       <td style="font-size:10px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${proyNombre}">${proyNombre}</td>
       <td style="font-size:11px;white-space:nowrap">${fmtFecha(r.Fecha)}</td>
-      <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.Actividad||'—').split(' · ').pop()}</td>
-      <td>${r.Avance||0}%</td>
-      <td style="font-size:11px">${(r.Trabajador||'—').split(' ')[0]}</td>
+      <td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHTML((r.Actividad||'—').split(' · ').pop())}</td>
+      <td>${escHTML(r.Avance||0)}%</td>
+      <td style="font-size:11px">${escHTML((r.Trabajador||'—').split(' ')[0])}</td>
     </tr>`;
   }).join('');
   const hoy = new Date().toISOString().slice(0,10);
@@ -3718,7 +3721,7 @@ function actualizarPDFPreview(){
       const conFoto = localReports.filter(r => r.FotoURL && r.FotoURL.startsWith('http'));
       if(fotosBody){
         fotosBody.innerHTML = conFoto.length
-          ? conFoto.slice(0,12).map(r=>`<div style="text-align:center"><img src="${r.FotoURL}" style="width:80px;height:60px;object-fit:cover;border:1px solid #ddd" onerror="this.style.display='none'"><div>${r.Actividad||''}</div></div>`).join('')
+          ? conFoto.slice(0,12).map(r=>`<div style="text-align:center"><img src="${escHTML(r.FotoURL)}" style="width:80px;height:60px;object-fit:cover;border:1px solid #ddd" onerror="this.style.display='none'"><div>${escHTML(r.Actividad||'')}</div></div>`).join('')
           : 'Sin fotos adjuntas en este período.';
       }
     }
@@ -3740,7 +3743,7 @@ function actualizarPDFPreview(){
         histBody.innerHTML = rows.length
           ? '<table class="pdf-tbl" style="font-size:9px">'
             + '<thead><tr><th>Fecha</th><th>Trabajador</th><th>Actividad</th><th>%</th><th>Estado</th></tr></thead><tbody>'
-            + rows.map(r=>`<tr><td>${fmtFecha(r.Fecha)}</td><td>${(r.Trabajador||'—').split(' ')[0]}</td><td style="max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${r.Actividad||'—'}</td><td style="text-align:center;font-weight:700;color:#1565c0">${r.Avance||0}%</td><td>${badge(r.estado)}</td></tr>`).join('')
+            + rows.map(r=>`<tr><td>${escHTML(fmtFecha(r.Fecha))}</td><td>${escHTML((r.Trabajador||'—').split(' ')[0])}</td><td style="max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${escHTML(r.Actividad||'—')}</td><td style="text-align:center;font-weight:700;color:#1565c0">${r.Avance||0}%</td><td>${badge(r.estado)}</td></tr>`).join('')
             + '</tbody></table>'
           : 'Sin reportes registrados.';
       }
@@ -3974,7 +3977,6 @@ function schedCheckAndExecute() {
 }
 
 // Mantener compatibilidad con llamadas antiguas
-function saveRepConfig() { schedGuardar(); }
 function cargarRepConfig() { schedRenderLista(); toggleDiarioOpts(); }
 
 // ══════════════════════════
