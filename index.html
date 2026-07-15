@@ -3258,7 +3258,11 @@ function processSync(json, status){
         const local = localReports.find(lr=>lr.ID_Reporte===idRep);
         // La hoja Reportes_Terreno usa encabezados legacy (ID_Proyecto, Fecha_Reporte,
         // Avance_Reportado, Materiales_Usados=zona, Problema_Bloqueo), por eso los alias extra.
-        const avanceSheets = String(parseFloat(r.Avance || r['Avance_Repo'] || r['Avance_Reportado'] || r['% de avance de esta actividad hoy'] || 0) * (parseFloat(r['% de avance de esta actividad hoy']) <= 10 ? 10 : 1));
+        // El % del Google Form llega en una columna cuyo título puede variar
+        // (ej. 'e% de avance de esta actividad hoy'), por eso se busca por contenido.
+        const kAvForm = Object.keys(r).find(k => k.toLowerCase().includes('% de avance'));
+        const avFormRaw = kAvForm ? parseFloat(r[kAvForm]) : NaN;
+        const avanceSheets = String(parseFloat(r.Avance || r['Avance_Repo'] || r['Avance_Reportado'] || (kAvForm ? r[kAvForm] : 0) || 0) * (!isNaN(avFormRaw) && avFormRaw <= 10 ? 10 : 1));
         return {
           ID_Reporte:   idRep,
           Trabajador:   r.Trabajador || r['Tu nombre completo'] || '',
