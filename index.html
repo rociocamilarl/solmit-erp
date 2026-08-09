@@ -269,6 +269,27 @@ textarea{resize:vertical;min-height:68px}
       </p>
       <div id="gsi-btn" style="display:flex;justify-content:center;min-height:44px"></div>
       <div id="gsi-aviso" style="display:none;font-size:12px;color:var(--yellow);margin-top:10px;line-height:1.5"></div>
+
+      <!-- Configuración inicial del dispositivo.
+           Sin esto, el Client ID solo se podía poner desde una sección visible únicamente a
+           supervisor/soporte… a la que no se puede llegar sin Client ID. Cada equipo nuevo
+           quedaba bloqueado. Aparece solo cuando falta algo por configurar. -->
+      <div id="setup-inicial" style="display:none;margin-top:14px;text-align:left">
+        <div class="fg">
+          <label class="fl" style="font-size:11px">Client ID de Google</label>
+          <input type="text" id="setup-client-id" placeholder="…apps.googleusercontent.com"
+                 autocomplete="off" style="font-size:12px">
+        </div>
+        <div class="fg">
+          <label class="fl" style="font-size:11px">Token de escritura (API_TOKEN)</label>
+          <input type="password" id="setup-token" placeholder="pegar el API_TOKEN"
+                 autocomplete="off" style="font-size:12px">
+        </div>
+        <button class="lock-btn" onclick="guardarSetupInicial()" style="margin-top:4px">Guardar configuración</button>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5">
+          Se guarda solo en este dispositivo. Pídeselos al equipo de soporte.
+        </div>
+      </div>
     </div>
 
     <div class="lock-err" id="login-err"></div>
@@ -4247,14 +4268,47 @@ function _avisoGSI(html){
   el.innerHTML = html || '';
 }
 
+// Configuración inicial del dispositivo desde la propia pantalla de acceso.
+function mostrarSetupInicial(){
+  const c = document.getElementById('setup-inicial');
+  if(!c) return;
+  c.style.display = 'block';
+  const ci = document.getElementById('setup-client-id');
+  const tk = document.getElementById('setup-token');
+  if(ci) ci.value = googleClientId || '';
+  if(tk) tk.value = apiToken || '';
+}
+
+function guardarSetupInicial(){
+  const err = document.getElementById('login-err');
+  const ci  = (document.getElementById('setup-client-id').value || '').trim();
+  const tk  = (document.getElementById('setup-token').value || '').trim();
+
+  if(!ci){ err.textContent = 'Pega el Client ID de Google.'; return; }
+  if(ci.indexOf('.apps.googleusercontent.com') < 0){
+    err.textContent = 'Ese no parece un Client ID: debe terminar en .apps.googleusercontent.com';
+    return;
+  }
+
+  googleClientId = ci;
+  localStorage.setItem(CLIENT_ID_KEY, ci);
+  if(tk){ apiToken = tk; localStorage.setItem(TOKEN_KEY, tk); }
+
+  err.textContent = '';
+  document.getElementById('setup-inicial').style.display = 'none';
+  toast('✅ Dispositivo configurado','ok');
+  iniciarGoogleSignIn();
+}
+
 function iniciarGoogleSignIn(){
   const cont = document.getElementById('gsi-btn');
   if(!cont) return;
   cont.innerHTML = '';
 
   if(!googleClientId){
-    _avisoGSI('⚠️ Falta configurar el <strong>Client ID de Google</strong>.<br>' +
-              'Base de datos → Configuración Web App. Mientras tanto solo se puede entrar como trabajador.');
+    _avisoGSI('⚠️ Este dispositivo aún no está configurado.<br>' +
+              'Pega abajo el Client ID para poder iniciar sesión. Mientras tanto se puede entrar como trabajador.');
+    mostrarSetupInicial();
     return;
   }
   if(!window.google || !google.accounts || !google.accounts.id){
