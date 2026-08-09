@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>ProyectoControl ERP · SOLMIT</title>
+<!-- Google Identity Services: login real para supervisor y soporte (tarea 3.1).
+     Los trabajadores NO pasan por aquí: entran sin login. -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -190,11 +193,7 @@ textarea{resize:vertical;min-height:68px}
 .sb-info{background:rgba(29,184,154,.04);border-left:2px solid var(--green);border-radius:0 6px 6px 0;padding:9px 12px;font-size:11.5px;color:#589888;line-height:1.8}
 .sb-info strong{color:var(--green)}
 
-/* ── MODE TOGGLE ── */
-.mode-toggle{display:flex;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:14px}
-.mode-btn{flex:1;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text3);transition:all .12s;font-family:inherit;text-align:center}
-.mode-btn.on{background:var(--blue2);color:#fff}
-.mode-btn:hover:not(.on){background:var(--bg3);color:var(--text2)}
+/* El conmutador de modo (ERP / WhatsApp) se retiró junto con el modo WhatsApp. */
 
 /* ── MODAL ── */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center}
@@ -256,16 +255,22 @@ textarea{resize:vertical;min-height:68px}
     <div style="margin-bottom:16px">
       <div style="width:52px;height:52px;background:linear-gradient(135deg,#1565c0,#00b4d8);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;margin:0 auto 10px">PC</div>
       <h2>ProyectoControl ERP</h2>
-      <p>SOLMIT · Ingresa tu PIN para continuar</p>
+      <p>SOLMIT · Elige cómo quieres entrar</p>
     </div>
-    <select id="login-role" class="lock-sel">
-      <option value="supervisor">👔 Supervisor / Administrador</option>
-      <option value="trabajador">🦺 Trabajador de terreno</option>
-      <option value="soporte">🛠️ Soporte del ERP</option>
-    </select>
-    <input id="login-pin" type="password" maxlength="6" placeholder="• • • •" class="lock-pin"
-      onkeydown="if(event.key==='Enter')intentarLogin()">
-    <button class="lock-btn" onclick="intentarLogin()">Ingresar →</button>
+
+    <!-- Trabajador: sin login, a propósito. Su reporte entra como 'pendiente' y no mueve el
+         avance hasta que un supervisor lo aprueba, así que no necesita identificarse.
+         Evita imponer cuenta Google a quien reporta desde la obra. -->
+    <button class="lock-btn" onclick="entrarComoTrabajador()">🦺 Soy trabajador · enviar reporte</button>
+
+    <div style="margin:18px 0 4px;border-top:1px solid var(--border);padding-top:16px">
+      <p style="font-size:12px;color:var(--text3);margin:0 0 12px">
+        Supervisión y soporte · requiere cuenta Google autorizada
+      </p>
+      <div id="gsi-btn" style="display:flex;justify-content:center;min-height:44px"></div>
+      <div id="gsi-aviso" style="display:none;font-size:12px;color:var(--yellow);margin-top:10px;line-height:1.5"></div>
+    </div>
+
     <div class="lock-err" id="login-err"></div>
     <div class="lock-hint" id="login-hint"></div>
   </div>
@@ -416,10 +421,8 @@ textarea{resize:vertical;min-height:68px}
     </div>
   </div>
 
-  <div class="mode-toggle">
-    <button class="mode-btn on" id="mb-erp" onclick="setMode('erp')">🖥️ Supervisor — ingreso ERP</button>
-    <button class="mode-btn" id="mb-wsp" onclick="setMode('wsp')">💬 Actualizar por WhatsApp / teléfono</button>
-  </div>
+  <!-- El conmutador de modo se retiró junto con el modo "WhatsApp / teléfono": al quedar
+       una sola opción, el selector sobraba. Los reportes creados aquí quedan con Fuente='ERP'. -->
   <div id="mode-info" class="ib" style="margin-bottom:14px">
     <strong>Modo ERP:</strong> El supervisor ingresa datos directamente. Se guardan en Google Sheets.
   </div>
@@ -528,18 +531,6 @@ textarea{resize:vertical;min-height:68px}
             </div>
           </div>
 
-          <div id="wsp-extra" class="form-section" style="display:none">
-            <div class="form-section-title" style="color:var(--yellow)">📱 Reporte por WhatsApp</div>
-            <div class="fg">
-              <label class="fl">Canal por el que te reportó</label>
-              <select name="Fuente">
-                <option value="WhatsApp">WhatsApp</option>
-                <option value="Llamada telefónica">Llamada telefónica</option>
-                <option value="Email">Email</option>
-                <option value="Presencial">Presencial</option>
-              </select>
-            </div>
-          </div>
 
           <div class="btn-row" style="margin-top:4px">
             <button type="submit" class="btn btn-g" id="btn-submit">💾 Guardar en Google Sheets</button>
@@ -620,6 +611,9 @@ textarea{resize:vertical;min-height:68px}
       <button class="btn btn-s btn-sm" onclick="nav(1)">+ Nuevo reporte</button>
     </div>
   </div>
+
+  <!-- Avisa si alguna edición manual del Gantt no llegó a Sheets (tarea 3.2) -->
+  <div id="gantt-pend-banner" style="display:none;margin:0 0 14px"></div>
 
   <div class="kpis kpis-4">
     <div class="kpi kb"><div class="kpi-l">Avance planificado</div><div class="kpi-v" id="g-avplan">—</div><div class="kpi-s" id="g-avplan-s">Calculando...</div></div>
@@ -983,6 +977,27 @@ textarea{resize:vertical;min-height:68px}
         <label class="fl">URL del Web App desplegado</label>
         <input type="text" id="webapp-url" placeholder="https://script.google.com/macros/s/…/exec" oninput="saveWebApp()" value="">
       </div>
+      <div class="fg">
+        <label class="fl">Token de escritura (API_TOKEN)</label>
+        <input type="password" id="webapp-token" placeholder="pegar el API_TOKEN de Propiedades del script" oninput="saveToken()" autocomplete="off" value="">
+      </div>
+      <div class="fg">
+        <label class="fl">Client ID de Google (para inicio de sesión)</label>
+        <input type="text" id="google-client-id" placeholder="…apps.googleusercontent.com" oninput="saveClientId()" value="">
+      </div>
+      <div class="ib" style="margin:0 0 12px">
+        <strong>De dónde sale el Client ID:</strong><br>
+        Google Cloud Console → APIs y servicios → Credenciales → Crear credenciales →
+        <em>ID de cliente de OAuth</em> → Tipo: <em>Aplicación web</em> →
+        en <em>Orígenes autorizados de JavaScript</em> añadir <code>https://rociocamilarl.github.io</code>.
+        No es un secreto: puede ir a la vista.
+      </div>
+      <div class="wb" style="margin:0 0 12px">
+        <strong>⚠️ Se configura una vez por dispositivo.</strong><br>
+        Sin este token, guardar reportes, validar y enviar correo responden <em>"No autorizado"</em>.
+        El token vive solo en este navegador: <strong>no se publica</strong> con la aplicación.
+        Pídeselo al equipo de soporte; no lo compartas por WhatsApp ni lo pegues en documentos.
+      </div>
       <div class="ib" style="margin:0 0 12px">
         <strong>Cómo obtener esta URL:</strong><br>
         Apps Script → Implementar → Nueva implementación → Tipo: <em>Aplicación web</em> → Ejecutar como: <em>Yo</em> → Acceso: <em>Cualquiera</em> → Implementar → Copiar URL → pegar aquí
@@ -1145,7 +1160,16 @@ textarea{resize:vertical;min-height:68px}
 
       <div class="card" style="margin-top:14px">
         <div class="ct">👥 Gestión de usuarios y PINs</div>
-        <p style="font-size:12px;color:var(--text3);margin:0 0 12px">Define quién puede acceder y con qué rol. El PIN es de 4–6 dígitos. <strong style="color:var(--yellow)">Sección exclusiva del equipo de soporte.</strong></p>
+        <div class="wb" style="margin:0 0 12px">
+          <strong>⚠️ Estos PIN ya no dan acceso.</strong><br>
+          Desde la tarea 3.1 el acceso de <strong>supervisor y soporte</strong> se controla con
+          inicio de sesión de Google y se autoriza en la hoja <strong>Usuarios</strong> del
+          Google Sheets (columnas Email, Rol, Activo) — no en este navegador. Los
+          <strong>trabajadores</strong> entran sin login: sus reportes quedan
+          <em>pendientes</em> hasta que un supervisor los aprueba.<br>
+          Esta tabla se conserva solo como referencia histórica.
+        </div>
+        <p style="font-size:12px;color:var(--text3);margin:0 0 12px">Listado local heredado. <strong style="color:var(--yellow)">Sección exclusiva del equipo de soporte.</strong></p>
         <div class="tw" style="margin-bottom:12px">
           <table>
             <thead><tr><th>Nombre</th><th>Rol</th><th>PIN</th><th>Acciones</th></tr></thead>
@@ -1239,7 +1263,54 @@ localStorage.setItem('solmit_webapp_url', DEFAULT_WEBAPP);
 let webAppUrl = localStorage.getItem(WEBAPP_KEY) || DEFAULT_WEBAPP;
 let localReports    = JSON.parse(localStorage.getItem(REPORTS_KEY) || '[]');
 let localEvidencias = JSON.parse(localStorage.getItem(EVI_KEY)     || '[]');
-let formMode = 'erp';
+
+// ══════════════════════════════════════════════════════════
+// TOKEN DE ESCRITURA DEL WEB APP  (tarea 1.1, paso 2)
+// El token NO se incrusta en el código: esta SPA es pública en GitHub Pages y
+// cualquiera podría leerlo con "ver código fuente". Se configura una vez por
+// dispositivo autorizado (Base de datos → Configuración Web App) y queda solo
+// en el localStorage de ese navegador.
+// ══════════════════════════════════════════════════════════
+const TOKEN_KEY = 'solmit_api_token';
+let apiToken = localStorage.getItem(TOKEN_KEY) || '';
+
+function saveToken(){
+  apiToken = document.getElementById('webapp-token').value.trim();
+  localStorage.setItem(TOKEN_KEY, apiToken);
+}
+
+// ══════════════════════════════════════════════════════════
+// NIVELES DE ACCESO (deben coincidir con WebApp.gs → verificarAcceso)
+// El nivel va con el riesgo de la acción, no con la comodidad:
+//   · ACCIONES_TOKEN → crear un reporte. Entra como 'pendiente' y no mueve el avance
+//     hasta que alguien con rol lo apruebe, así que basta el token del dispositivo.
+//   · ACCIONES_ROL   → aprobar, corregir avance y enviar correo desde la cuenta SOLMIT.
+//     Exigen identidad Google verificada y rol privilegiado en la hoja Usuarios.
+// ══════════════════════════════════════════════════════════
+const ACCIONES_TOKEN = ['addReport'];
+const ACCIONES_ROL   = ['updateEstado','updateAvance','updateGantt','sendReport','sendReportHTML'];
+
+// Credencial de Google del usuario con sesión iniciada. Vive en sessionStorage: se pierde al
+// cerrar la pestaña, que es justo lo que queremos en un equipo compartido en obra.
+let googleIdToken = sessionStorage.getItem('solmit_id_token') || '';
+
+// Firma cada llamada con la credencial que le corresponde. Si falta, deja la URL intacta
+// para que el servidor responda un error explícito en vez de fallar en silencio.
+function conToken(url){
+  try{
+    const u = new URL(url, location.href);
+    const accion = u.searchParams.get('action') || '';
+    if(ACCIONES_TOKEN.includes(accion) && apiToken && !u.searchParams.has('token')){
+      u.searchParams.set('token', apiToken);
+    }
+    if(ACCIONES_ROL.includes(accion) && googleIdToken && !u.searchParams.has('id_token')){
+      u.searchParams.set('id_token', googleIdToken);
+    }
+    return u.toString();
+  }catch(e){
+    return url; // URL no parseable: no romper el envío
+  }
+}
 
 // ══════════════════════════════════════════════════════════
 // AUTO-ACTUALIZACIÓN DE VERSIÓN
@@ -1287,6 +1358,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setDate();
   document.getElementById('f-fecha').valueAsDate = new Date();
   document.getElementById('webapp-url').value = webAppUrl;
+  const _tk = document.getElementById('webapp-token');
+  if(_tk) _tk.value = apiToken;
+  const _ci = document.getElementById('google-client-id');
+  if(_ci) _ci.value = googleClientId;
   restaurarDesdeBackup();
   actualizarGanttActs();
   cargarOverridesGantt(); // aplicar % y estados editados manualmente
@@ -1312,6 +1387,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(schedCheckAndExecute, 5000);   // verificar 5s después de cargar
   actualizarBadgeQueue();
   renderColaBanner();
+  renderGanttPendientes(); // ediciones del Gantt que no llegaron a Sheets (tarea 3.2)
   respaldoSemanalCheck(); // respaldo automático si pasó una semana
   renderRespaldos();
   iniciarAutoActualizacion(); // recargar solo si hay versión nueva publicada
@@ -1978,16 +2054,7 @@ function nav(i){
 // ══════════════════════════
 // FORM MODE
 // ══════════════════════════
-function setMode(m){
-  formMode = m;
-  const isWsp = m==='wsp';
-  document.getElementById('wsp-extra').style.display = isWsp?'block':'none';
-  document.getElementById('mode-info').innerHTML = isWsp
-    ? '<strong>Modo WhatsApp:</strong> El trabajador te reportó por WhatsApp/teléfono. Tú como supervisor ingresas los datos en su nombre. Se registra la fuente del dato.'
-    : '<strong>Modo ERP:</strong> El supervisor ingresa datos directamente al sistema. Se guardan en Google Sheets.';
-  document.getElementById('mb-erp').className = 'mode-btn'+(isWsp?'':' on');
-  document.getElementById('mb-wsp').className = 'mode-btn'+(isWsp?' on':'');
-}
+// setMode() se eliminó con el modo "WhatsApp / teléfono".
 
 function updateSlider(v){
   const pct = +v * 10;
@@ -2814,6 +2881,79 @@ function guardarOverrideGantt(a){
   const v = { av: a._manualAv ? a.avFijo : null, estado: a._manualEstado || null };
   if (v.av == null && !v.estado) delete ovr[k]; else ovr[k] = v;
   localStorage.setItem(GANTT_OVR_KEY, JSON.stringify(ovr));
+  // localStorage es solo caché de UI (tarea 3.2): la verdad se guarda en Sheets.
+  sincronizarGantt(a);
+}
+
+// Carta_Gantt guarda en su columna B el NOMBRE del proyecto (así lo escribe
+// cargarMatrizProyecto), no el ID. GANTT_ACTS corresponde a un único proyecto activo.
+function proyectoActivoNombre(){
+  const p = (Array.isArray(PROYECTOS) && PROYECTOS[0]) || PROYECTOS_DEFAULT[0];
+  return (p && p.nombre) || '';
+}
+
+// Persiste la edición manual de una actividad en Carta_Gantt.
+// Antes esto no existía: la edición se quedaba en el navegador y cada equipo veía un Gantt
+// distinto, mientras el toast decía "fijado" como si se hubiera guardado.
+function sincronizarGantt(a){
+  if(!webAppUrl) return;
+  const params = new URLSearchParams({
+    action:    'updateGantt',
+    proyecto:  proyectoActivoNombre(),
+    actividad: a.desc || '',
+  });
+  if (a._manualAv)     params.set('avance', String(a.avFijo));
+  if (a._manualEstado) params.set('estado', a._manualEstado);
+
+  sendJSONP(webAppUrl + '?' + params.toString(),
+    (r) => {
+      if(r && r.status === 'ok'){
+        marcarGanttSincronizado(a, true);
+      } else {
+        marcarGanttSincronizado(a, false, (r && r.msg) || 'rechazado por el servidor');
+      }
+    },
+    () => marcarGanttSincronizado(a, false, 'sin conexión con el servidor')
+  );
+}
+
+// Deja constancia visible de si la edición llegó o no a Sheets, en vez de fallar en silencio.
+const GANTT_PEND_KEY = 'solmit_gantt_pendientes';
+function marcarGanttSincronizado(a, ok, motivo){
+  let pend = {};
+  try { pend = JSON.parse(localStorage.getItem(GANTT_PEND_KEY) || '{}'); } catch(e){}
+  const k = ganttOvrKey(a);
+  if(ok){
+    delete pend[k];
+  } else {
+    pend[k] = { id: a.id, desc: a.desc, motivo: motivo || 'desconocido', ts: Date.now() };
+    toast('⚠️ "' + (a.id||'') + '" quedó SIN guardar en Sheets: ' + (motivo||''), 'err');
+  }
+  localStorage.setItem(GANTT_PEND_KEY, JSON.stringify(pend));
+  renderGanttPendientes();
+}
+
+function renderGanttPendientes(){
+  let pend = {};
+  try { pend = JSON.parse(localStorage.getItem(GANTT_PEND_KEY) || '{}'); } catch(e){}
+  const n = Object.keys(pend).length;
+  const el = document.getElementById('gantt-pend-banner');
+  if(!el) return;
+  if(!n){ el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.className = 'wb';
+  el.innerHTML = '<strong>⚠️ ' + n + ' edición(es) del Gantt sin guardar en Sheets.</strong><br>' +
+    'Solo están en este navegador; otros equipos no las ven. ' +
+    '<button class="btn btn-s btn-sm" onclick="reintentarGanttPendientes()" style="margin-top:6px">Reintentar</button>';
+}
+
+function reintentarGanttPendientes(){
+  let pend = {};
+  try { pend = JSON.parse(localStorage.getItem(GANTT_PEND_KEY) || '{}'); } catch(e){}
+  const claves = Object.keys(pend);
+  if(!claves.length) return;
+  toast('Reintentando ' + claves.length + ' edición(es)…','ok');
+  GANTT_ACTS.forEach(a => { if(claves.includes(ganttOvrKey(a))) sincronizarGantt(a); });
 }
 
 function refrescarTrasEdicionGantt(){
@@ -3270,8 +3410,11 @@ function processSync(json, status){
           Zona:         r.Zona       || r['Zona de trabajo'] || r['Materiales_Usados'] || '',
           Actividad:    r.Actividad  || r['Actividad realizada'] || r['ID_Actividad'] || '',
           Fecha:        r.Fecha      || r['Fecha_Report'] || r['Fecha_Reporte'] || r['Marca temporal'] || '',
-          // Si el avance fue editado manualmente en el ERP, esa edición tiene prioridad sobre lo que traiga Sheets
-          Avance:       local && local._avanceEditado ? String(local.Avance) : avanceSheets,
+          // Sheets manda, siempre (tarea 3.2). Antes una edición local marcada con
+          // _avanceEditado ganaba para siempre, porque el servidor no tenía updateAvance y la
+          // corrección se habría perdido. Ahora sí se persiste, así que dejar ganar al valor
+          // local solo serviría para que cada navegador mostrara una cifra distinta.
+          Avance:       avanceSheets,
           Observaciones:r.Observaciones || r['Observación'] || r['Observaciones (opcional)'] || '',
           FotoURL:      r.FotoURL    || r['Foto_URL'] || r['Sube Fotos del trabajo'] || '',
           Bloqueo:      r.Bloqueo    || r['Problema_Blo'] || r['Problema_Bloqueo'] || r['¿Hay algún problema o bloqueo?'] || '',
@@ -3426,9 +3569,20 @@ function sincronizarEstado(id, estado){
   if(!webAppUrl) return;
   const params = new URLSearchParams({action:'updateEstado', id, estado});
   sendJSONP(webAppUrl+'?'+params.toString(),
-    (r) => { if(r&&r.status==='ok') toast('☁️ Estado sincronizado en Sheets','ok'); },
-    ()  => { /* silencioso: ya está guardado localmente */ }
+    (r) => {
+      if(r && r.status==='ok'){ toast('☁️ Estado sincronizado en Sheets','ok'); }
+      else { avisarSyncFallida('estado de ' + id, (r && r.msg) || 'rechazado por el servidor'); }
+    },
+    ()  => avisarSyncFallida('estado de ' + id, 'sin conexión con el servidor')
   );
+}
+
+// Con Sheets como fuente de verdad (tarea 3.2), un fallo de escritura ya no es inocuo:
+// la próxima sincronización revierte el cambio local. Antes esto se ignoraba en silencio
+// ("ya está guardado localmente") y el usuario creía que había quedado guardado.
+function avisarSyncFallida(que, motivo){
+  toast('⚠️ No se pudo guardar en Sheets el ' + que + ': ' + motivo +
+        '. El cambio se revertirá en la próxima sincronización.', 'err');
 }
 
 function editarAvance(id, val){
@@ -3436,7 +3590,7 @@ function editarAvance(id, val){
   if(idx<0) return;
   const nuevoAvance = Math.min(100, Math.max(0, parseInt(val)||0));
   localReports[idx].Avance = nuevoAvance;
-  localReports[idx]._avanceEditado = true; // marca para que no se sobrescriba al sincronizar
+  localReports[idx]._avanceEditado = true; // solo informativo: Sheets sigue mandando al sincronizar
   localStorage.setItem(REPORTS_KEY, JSON.stringify(localReports));
   sincronizarAvance(id, nuevoAvance);
   if(localReports[idx].estado==='aprobado'){ renderAvanceLocal(); renderKPIs(); renderGanttSeccion(); }
@@ -3446,8 +3600,11 @@ function sincronizarAvance(id, avance){
   if(!webAppUrl) return;
   const params = new URLSearchParams({action:'updateAvance', id, avance});
   sendJSONP(webAppUrl+'?'+params.toString(),
-    (r) => { if(r&&r.status==='ok') toast('☁️ Avance sincronizado en Sheets','ok'); },
-    ()  => { /* silencioso: ya está guardado localmente */ }
+    (r) => {
+      if(r && r.status==='ok'){ toast('☁️ Avance sincronizado en Sheets','ok'); }
+      else { avisarSyncFallida('avance de ' + id, (r && r.msg) || 'rechazado por el servidor'); }
+    },
+    ()  => avisarSyncFallida('avance de ' + id, 'sin conexión con el servidor')
   );
 }
 
@@ -3616,6 +3773,8 @@ async function enviarAhora(){
   form.target = 'solmit-send-iframe';
   const addF = (n,v) => { const i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); };
   addF('action','sendReportHTML');
+  // Va por POST, no pasa por sendJSONP/conToken: enviar correo exige identidad Google.
+  if(googleIdToken) addF('id_token', googleIdToken);
   addF('email', email);
   addF('cc', cc);
   addF('asunto', asunto);
@@ -4041,10 +4200,13 @@ function copyId(id){
 // ══════════════════════════════════════════
 const USERS_KEY = 'solmit_users';
 const QUEUE_KEY = 'solmit_queue';
-const SOPORTE_USER = {nombre:'Rocío Rojas Lacroix', iniciales:'RR', rol:'soporte', pin:'7391'};
+// Sin PIN: ya no se valida nada en el navegador (tarea 3.1). Publicar un PIN en el fuente
+// de una página estática equivale a publicarlo a secas. Quién accede se decide en la hoja
+// Usuarios del Sheets, y lo verifica Apps Script contra la identidad de Google.
+const SOPORTE_USER = {nombre:'Rocío Rojas Lacroix', iniciales:'RR', rol:'soporte', pin:''};
 const DEFAULT_USERS = [
-  {nombre:'Jorge Rojas', iniciales:'JR', rol:'supervisor', pin:'1234'},
-  {nombre:'Trabajador',  iniciales:'TR', rol:'trabajador', pin:'5678'},
+  {nombre:'Jorge Rojas', iniciales:'JR', rol:'supervisor', pin:''},
+  {nombre:'Trabajador',  iniciales:'TR', rol:'trabajador', pin:''},
   {...SOPORTE_USER},
 ];
 
@@ -4060,24 +4222,116 @@ function getUsers(){
 }
 function saveUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
 
-function intentarLogin(){
-  const pin  = document.getElementById('login-pin').value.trim();
-  const rol  = document.getElementById('login-role').value;
-  const err  = document.getElementById('login-err');
-  const hint = document.getElementById('login-hint');
-  err.textContent = '';
-  if(!pin){ err.textContent = 'Ingresa tu PIN.'; return; }
-  const users = getUsers();
-  const u = users.find(u => u.pin === pin && u.rol === rol);
-  if(!u){
-    err.textContent = 'PIN incorrecto para este rol.';
-    document.getElementById('login-pin').value = '';
-    document.getElementById('login-pin').focus();
+// ══════════════════════════════════════════════════════════
+// LOGIN (tarea 3.1)
+// El PIN validado en el navegador se sustituye por Google Sign-In con verificación en el
+// servidor. El rol NO lo decide esta página: lo devuelve Apps Script tras comprobar el
+// token contra Google y buscar el email en la hoja Usuarios.
+// ══════════════════════════════════════════════════════════
+
+// El Client ID de OAuth es público por diseño (no es un secreto). Se puede pegar desde
+// Ajustes para no tener que recompilar la SPA si cambia.
+const CLIENT_ID_KEY = 'solmit_google_client_id';
+let googleClientId = localStorage.getItem(CLIENT_ID_KEY) || '';
+
+function saveClientId(){
+  googleClientId = document.getElementById('google-client-id').value.trim();
+  localStorage.setItem(CLIENT_ID_KEY, googleClientId);
+  iniciarGoogleSignIn();
+}
+
+function _avisoGSI(html){
+  const el = document.getElementById('gsi-aviso');
+  if(!el) return;
+  el.style.display = html ? 'block' : 'none';
+  el.innerHTML = html || '';
+}
+
+function iniciarGoogleSignIn(){
+  const cont = document.getElementById('gsi-btn');
+  if(!cont) return;
+  cont.innerHTML = '';
+
+  if(!googleClientId){
+    _avisoGSI('⚠️ Falta configurar el <strong>Client ID de Google</strong>.<br>' +
+              'Base de datos → Configuración Web App. Mientras tanto solo se puede entrar como trabajador.');
     return;
   }
+  if(!window.google || !google.accounts || !google.accounts.id){
+    // La librería carga con async/defer: reintentar poco después.
+    _avisoGSI('Cargando inicio de sesión de Google…');
+    setTimeout(iniciarGoogleSignIn, 600);
+    return;
+  }
+
+  _avisoGSI('');
+  try{
+    google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: manejarCredencialGoogle,
+      auto_select: false,
+    });
+    google.accounts.id.renderButton(cont, {
+      theme: 'filled_blue', size: 'large', text: 'signin_with',
+      shape: 'pill', locale: 'es',
+    });
+  }catch(e){
+    _avisoGSI('⚠️ No se pudo iniciar Google Sign-In: ' + e.message);
+  }
+}
+
+// Recibe la credencial de Google y la canjea en el servidor por el rol real.
+function manejarCredencialGoogle(resp){
+  const err = document.getElementById('login-err');
+  err.textContent = '';
+
+  const idToken = resp && resp.credential;
+  if(!idToken){ err.textContent = 'No se recibió la credencial de Google.'; return; }
+  if(!webAppUrl){ err.textContent = 'Falta configurar la URL del Web App.'; return; }
+
+  err.textContent = 'Verificando…';
+
+  // Sin conToken: esta llamada ES la autenticación, no lleva credencial previa.
+  sendJSONP(
+    webAppUrl + '?action=login&id_token=' + encodeURIComponent(idToken),
+    (r) => {
+      if(!r || r.status !== 'ok'){
+        err.textContent = (r && r.msg) || 'No autorizado.';
+        return;
+      }
+      googleIdToken = idToken;
+      sessionStorage.setItem('solmit_id_token', idToken);
+
+      const u = {
+        nombre: r.nombre || r.email,
+        iniciales: (r.nombre || r.email || '?').trim().split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase(),
+        rol: r.rol,
+        email: r.email,
+      };
+      sessionStorage.setItem('solmit_user', JSON.stringify(u));
+      err.textContent = '';
+      aplicarSesion(u);
+      document.getElementById('lockscreen').style.display = 'none';
+    },
+    () => { err.textContent = 'No se pudo contactar con el servidor. Revisa la conexión.'; }
+  );
+}
+
+// Trabajador: entra sin login. Solo ve el formulario y sus reportes quedan 'pendiente'.
+function entrarComoTrabajador(){
+  const u = { nombre: 'Trabajador de terreno', iniciales: 'TR', rol: 'trabajador' };
   sessionStorage.setItem('solmit_user', JSON.stringify(u));
+  googleIdToken = '';
+  sessionStorage.removeItem('solmit_id_token');
   aplicarSesion(u);
   document.getElementById('lockscreen').style.display = 'none';
+}
+
+function cerrarSesion(){
+  googleIdToken = '';
+  sessionStorage.removeItem('solmit_id_token');
+  sessionStorage.removeItem('solmit_user');
+  location.reload();
 }
 
 function aplicarSesion(u){
@@ -4112,16 +4366,23 @@ function cerrarSesion(){
 function verificarSesion(){
   const raw = sessionStorage.getItem('solmit_user');
   if(raw){
-    try{ aplicarSesion(JSON.parse(raw)); document.getElementById('lockscreen').style.display='none'; return; }
-    catch(e){}
+    try{
+      const u = JSON.parse(raw);
+      // Una sesión con rol privilegiado solo vale si su credencial de Google sigue en
+      // sessionStorage. Si no, se vuelve a pedir login: el rol nunca se restaura "a secas".
+      const privilegiado = u && u.rol && u.rol !== 'trabajador';
+      if(!privilegiado || googleIdToken){
+        aplicarSesion(u);
+        document.getElementById('lockscreen').style.display = 'none';
+        return;
+      }
+      sessionStorage.removeItem('solmit_user');
+    }catch(e){}
   }
-  // Mostrar hint con PINs solo si no hay usuarios custom
-  const hasCustom = !!localStorage.getItem(USERS_KEY);
-  if(!hasCustom){
-    document.getElementById('login-hint').innerHTML =
-      'PINs iniciales:<br>Supervisor → <strong>1234</strong> &nbsp;|&nbsp; Trabajador → <strong>5678</strong> &nbsp;|&nbsp; Soporte → <strong>7391</strong><br><em style="color:var(--text3)">Cámbialos en Proyectos → Gestión de usuarios</em>';
-  }
-  document.getElementById('login-pin').focus();
+  document.getElementById('login-hint').innerHTML =
+    '<em style="color:var(--text3)">El acceso de supervisión se gestiona en la hoja ' +
+    '<strong>Usuarios</strong> del Google Sheets, no en este navegador.</em>';
+  iniciarGoogleSignIn();
 }
 
 // ── Gestión CRUD usuarios ──────────────────
@@ -4203,6 +4464,9 @@ function limpiarFormUsuario(){
 // JSONP HELPER + COLA DE ENVÍOS
 // ══════════════════════════════════════════
 function sendJSONP(url, onSuccess, onError, timeoutMs = 12000){
+  // Punto único donde se añade el token: cubre addReport, updateEstado, updateAvance,
+  // sendReport y la cola diferida (drainQueue), que pasan todas por aquí.
+  url = conToken(url);
   // 1) fetch sin cookies: inmune al interceptor de multi-cuenta de Google
   const ctrl = new AbortController();
   const tf = setTimeout(() => ctrl.abort(), timeoutMs);
