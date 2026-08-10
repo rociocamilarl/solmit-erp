@@ -2217,7 +2217,11 @@ if (!Array.isArray(PROYECTOS) || !PROYECTOS.length) {
 
 // CARTA GANTT REAL
 // ══════════════════════════
-const PROYECTO_INICIO = new Date('2026-06-10');
+// OJO con el formato: new Date('2026-06-10') se interpreta como medianoche UTC, que en Chile
+// (UTC-4) cae el 9 de junio a las 20:00 — todo el plan salía corrido un día hacia atrás.
+// Con año/mes/día por separado se interpreta en hora local y el día 1 es el 10 de junio,
+// que es lo que dice la matriz del cliente. Debe coincidir con PROYECTO_INICIO_GANTT (Fechas.gs).
+const PROYECTO_INICIO = new Date(2026, 5, 10); // 10-jun-2026
 const GANTT_ACTS = [
   {id:'1.1', desc:'Cambio de equipo de iluminacion Apagado (IP Según recinto-Modelo según corresponda)', zona:'Jaula generador (Exterior)', unidad:'uni', cantidad:1.0, avFijo:0, equipo:'Persona 1', horas:2.0, ini:24, fin:25},
   {id:'1.2', desc:'Regularizar circuito en CAG (canalización + Cableado)', zona:'Jaula generador (Exterior)', unidad:'ml', cantidad:30.0, avFijo:0, equipo:'Persona 2', horas:4.0, ini:24, fin:25},
