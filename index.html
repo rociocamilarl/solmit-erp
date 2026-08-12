@@ -261,7 +261,10 @@ textarea{resize:vertical;min-height:68px}
     <!-- Trabajador: sin login, a propósito. Su reporte entra como 'pendiente' y no mueve el
          avance hasta que un supervisor lo aprueba, así que no necesita identificarse.
          Evita imponer cuenta Google a quien reporta desde la obra. -->
-    <button class="lock-btn" onclick="entrarComoTrabajador()">🦺 Soy trabajador · enviar reporte</button>
+    <button class="lock-btn" onclick="entrarComoTrabajador()">🦺 Soy trabajador · enviar reporte ↗</button>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">
+      Abre el formulario de terreno. No necesitas cuenta ni contraseña.
+    </div>
 
     <div style="margin:18px 0 4px;border-top:1px solid var(--border);padding-top:16px">
       <p style="font-size:12px;color:var(--text3);margin:0 0 12px">
@@ -270,24 +273,18 @@ textarea{resize:vertical;min-height:68px}
       <div id="gsi-btn" style="display:flex;justify-content:center;min-height:44px"></div>
       <div id="gsi-aviso" style="display:none;font-size:12px;color:var(--yellow);margin-top:10px;line-height:1.5"></div>
 
-      <!-- Configuración inicial del dispositivo.
-           Sin esto, el Client ID solo se podía poner desde una sección visible únicamente a
-           supervisor/soporte… a la que no se puede llegar sin Client ID. Cada equipo nuevo
-           quedaba bloqueado. Aparece solo cuando falta algo por configurar. -->
+      <!-- Respaldo manual del Client ID. Normalmente no se usa: getConfig lo trae del
+           servidor al arrancar. Solo aparece si esa llamada falla (sin red, Web App caído
+           o sin OAUTH_CLIENT_ID configurado), para no dejar el equipo bloqueado. -->
       <div id="setup-inicial" style="display:none;margin-top:14px;text-align:left">
         <div class="fg">
           <label class="fl" style="font-size:11px">Client ID de Google</label>
           <input type="text" id="setup-client-id" placeholder="…apps.googleusercontent.com"
                  autocomplete="off" style="font-size:12px">
         </div>
-        <div class="fg">
-          <label class="fl" style="font-size:11px">Token de escritura (API_TOKEN)</label>
-          <input type="password" id="setup-token" placeholder="pegar el API_TOKEN"
-                 autocomplete="off" style="font-size:12px">
-        </div>
-        <button class="lock-btn" onclick="guardarSetupInicial()" style="margin-top:4px">Guardar configuración</button>
+        <button class="lock-btn" onclick="guardarSetupInicial()" style="margin-top:4px">Guardar</button>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5">
-          Se guarda solo en este dispositivo. Pídeselos al equipo de soporte.
+          Solo hace falta si el servidor no responde. Pídeselo al equipo de soporte.
         </div>
       </div>
     </div>
@@ -1006,19 +1003,15 @@ textarea{resize:vertical;min-height:68px}
         <input type="text" id="webapp-url" placeholder="https://script.google.com/macros/s/…/exec" oninput="saveWebApp()" value="">
       </div>
       <div class="fg">
-        <label class="fl">Token de escritura (API_TOKEN)</label>
-        <input type="password" id="webapp-token" placeholder="pegar el API_TOKEN de Propiedades del script" oninput="saveToken()" autocomplete="off" value="">
-      </div>
-      <div class="fg">
-        <label class="fl">Client ID de Google (para inicio de sesión)</label>
+        <label class="fl">Client ID de Google (se obtiene solo del servidor)</label>
         <input type="text" id="google-client-id" placeholder="…apps.googleusercontent.com" oninput="saveClientId()" value="">
       </div>
       <div class="ib" style="margin:0 0 12px">
-        <strong>De dónde sale el Client ID:</strong><br>
-        Google Cloud Console → APIs y servicios → Credenciales → Crear credenciales →
-        <em>ID de cliente de OAuth</em> → Tipo: <em>Aplicación web</em> →
-        en <em>Orígenes autorizados de JavaScript</em> añadir <code>https://rociocamilarl.github.io</code>.
-        No es un secreto: puede ir a la vista.
+        <strong>Normalmente no hay que tocar nada aquí.</strong><br>
+        El Client ID llega solo desde el servidor (<code>OAUTH_CLIENT_ID</code> en Propiedades del
+        script). Este campo es solo para casos en que el Web App no responda.<br>
+        Ya no existe token por dispositivo: los trabajadores reportan por el Google Form y el
+        resto de acciones exigen inicio de sesión con Google.
       </div>
       <div class="wb" style="margin:0 0 12px">
         <strong>⚠️ Se configura una vez por dispositivo.</strong><br>
@@ -1302,8 +1295,12 @@ let localEvidencias = JSON.parse(localStorage.getItem(EVI_KEY)     || '[]');
 const TOKEN_KEY = 'solmit_api_token';
 let apiToken = localStorage.getItem(TOKEN_KEY) || '';
 
+// El campo del token se retiró de la interfaz: ya no hay acciones que lo exijan. La función
+// se conserva a prueba de nulos por si algún navegador tiene cacheada la versión anterior.
 function saveToken(){
-  apiToken = document.getElementById('webapp-token').value.trim();
+  const el = document.getElementById('webapp-token');
+  if(!el) return;
+  apiToken = el.value.trim();
   localStorage.setItem(TOKEN_KEY, apiToken);
 }
 
@@ -1315,8 +1312,10 @@ function saveToken(){
 //   · ACCIONES_ROL   → aprobar, corregir avance y enviar correo desde la cuenta SOLMIT.
 //     Exigen identidad Google verificada y rol privilegiado en la hoja Usuarios.
 // ══════════════════════════════════════════════════════════
-const ACCIONES_TOKEN = ['addReport'];
-const ACCIONES_ROL   = ['updateEstado','updateAvance','updateGantt','sendReport','sendReportHTML'];
+// Ya no hay acciones que dependan de un token de dispositivo: los trabajadores reportan por
+// el Google Form y todo lo que entra por aquí lo hace un usuario identificado con Google.
+const ACCIONES_TOKEN = [];
+const ACCIONES_ROL   = ['addReport','updateEstado','updateAvance','updateGantt','sendReport','sendReportHTML'];
 
 // Credencial de Google del usuario con sesión iniciada. Vive en sessionStorage: se pierde al
 // cerrar la pestaña, que es justo lo que queremos en un equipo compartido en obra.
@@ -1424,6 +1423,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if(webAppUrl && navigator.onLine){
     // Proyectos y actividades desde Sheets (multiproyecto). Va antes que syncFromSheets
     // para que los reportes se apliquen sobre el Gantt ya cargado.
+    cargarConfigDesdeServidor();               // Client ID y URL del Form: sin configurar nada
     setTimeout(cargarProyectosDesdeSheets, 1500);
     setTimeout(()=>syncFromSheets(true), 4000);
     setInterval(()=>{ if(navigator.onLine) syncFromSheets(true); }, 5*60*1000);
@@ -2941,6 +2941,31 @@ function proyectoActivoNombre(){
   return (p && p.nombre) || '';
 }
 
+// Configuración pública del servidor: Client ID de Google y URL del formulario.
+// Antes había que pegar el Client ID a mano en cada dispositivo; ahora llega solo, así que
+// un equipo nuevo funciona abriendo la URL y nada más.
+const FORM_URL_KEY = 'solmit_form_url';
+let formUrlTrabajador = localStorage.getItem(FORM_URL_KEY) || '';
+
+function cargarConfigDesdeServidor(){
+  if(!webAppUrl) return;
+  sendJSONP(webAppUrl + '?action=getConfig',
+    (r) => {
+      if(!r || r.status !== 'ok') return;
+      if(r.clientId && r.clientId !== googleClientId){
+        googleClientId = r.clientId;
+        localStorage.setItem(CLIENT_ID_KEY, r.clientId); // caché para arrancar sin red
+        iniciarGoogleSignIn();
+      }
+      if(r.formUrl){
+        formUrlTrabajador = r.formUrl;
+        localStorage.setItem(FORM_URL_KEY, r.formUrl);
+      }
+    },
+    () => { /* sin conexión: se usa lo cacheado */ }
+  );
+}
+
 function cargarProyectosDesdeSheets(){
   if(!webAppUrl) return;
   sendJSONP(webAppUrl + '?action=getProyectos',
@@ -4385,15 +4410,12 @@ function mostrarSetupInicial(){
   if(!c) return;
   c.style.display = 'block';
   const ci = document.getElementById('setup-client-id');
-  const tk = document.getElementById('setup-token');
   if(ci) ci.value = googleClientId || '';
-  if(tk) tk.value = apiToken || '';
 }
 
 function guardarSetupInicial(){
   const err = document.getElementById('login-err');
   const ci  = (document.getElementById('setup-client-id').value || '').trim();
-  const tk  = (document.getElementById('setup-token').value || '').trim();
 
   if(!ci){ err.textContent = 'Pega el Client ID de Google.'; return; }
   if(ci.indexOf('.apps.googleusercontent.com') < 0){
@@ -4403,7 +4425,6 @@ function guardarSetupInicial(){
 
   googleClientId = ci;
   localStorage.setItem(CLIENT_ID_KEY, ci);
-  if(tk){ apiToken = tk; localStorage.setItem(TOKEN_KEY, tk); }
 
   err.textContent = '';
   document.getElementById('setup-inicial').style.display = 'none';
@@ -4417,11 +4438,17 @@ function iniciarGoogleSignIn(){
   cont.innerHTML = '';
 
   if(!googleClientId){
-    _avisoGSI('⚠️ Este dispositivo aún no está configurado.<br>' +
-              'Pega abajo el Client ID para poder iniciar sesión. Mientras tanto se puede entrar como trabajador.');
+    // Solo se llega aquí si getConfig no respondió: normalmente el Client ID llega del
+    // servidor y este bloque no llega a verse.
+    _avisoGSI('⚠️ No se pudo obtener la configuración del servidor.<br>' +
+              'Pega el Client ID abajo, o entra como trabajador mientras tanto.');
     mostrarSetupInicial();
     return;
   }
+
+  // Si la configuración llegó (ahora o en un reintento), se retira el respaldo manual.
+  const setup = document.getElementById('setup-inicial');
+  if(setup) setup.style.display = 'none';
   if(!window.google || !google.accounts || !google.accounts.id){
     // La librería carga con async/defer: reintentar poco después.
     _avisoGSI('Cargando inicio de sesión de Google…');
@@ -4482,14 +4509,15 @@ function manejarCredencialGoogle(resp){
   );
 }
 
-// Trabajador: entra sin login. Solo ve el formulario y sus reportes quedan 'pendiente'.
+// Trabajador: va al Google Form, que es su vía desde siempre (WhatsApp/QR, sin cuenta).
+//
+// Antes entraba a la SPA con un formulario propio, y para que pudiera guardar hacía falta
+// configurar un token en CADA dispositivo. Mandándolo al Form —que no pasa por el Web App—
+// esa configuración desaparece y el trabajador no tiene que aprender nada nuevo.
 function entrarComoTrabajador(){
-  const u = { nombre: 'Trabajador de terreno', iniciales: 'TR', rol: 'trabajador' };
-  sessionStorage.setItem('solmit_user', JSON.stringify(u));
-  googleIdToken = '';
-  sessionStorage.removeItem('solmit_id_token');
-  aplicarSesion(u);
-  document.getElementById('lockscreen').style.display = 'none';
+  const url = formUrlTrabajador ||
+              'https://docs.google.com/forms/d/1qS4li8ly4xHCt93atKLaO-YEgS4y9WIDklHIwg31E4s/viewform';
+  window.open(url, '_blank');
 }
 
 function cerrarSesion(){
