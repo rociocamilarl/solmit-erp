@@ -624,7 +624,14 @@ textarea{resize:vertical;min-height:68px}
   <div class="ph">
     <div class="ph-left">
       <h1>Carta Gantt</h1>
-      <p class="gantt-sub">SODIMAC Copiapó 739 · Planificado vs. real · Jun–Oct 2026</p>
+      <!-- El selector va FUERA de .gantt-sub: renderGanttHeader reescribe ese párrafo entero
+           con textContent, y cualquier elemento dentro se perdería en el primer render. -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <select id="sel-proyecto" onchange="cambiarProyecto(this.value)"
+                style="display:none;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit"></select>
+        <span id="gantt-origen" style="font-size:11px;color:var(--text3)"></span>
+      </div>
+      <p class="gantt-sub">Planificado vs. real</p>
     </div>
     <div class="btn-row" style="margin:0">
       <a class="btn btn-s btn-sm" href="https://docs.google.com/spreadsheets/d/1SvL6H7Ku15ftjZHPyrAC1ANY0MGMUpeKvdWtaFXqcd4" target="_blank">📊 Editar en Sheets</a>
@@ -1415,6 +1422,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sincronización automática desde Sheets: al abrir y cada 5 minutos,
   // para que los cambios hechos en otro navegador (cliente/soporte) se reflejen solos
   if(webAppUrl && navigator.onLine){
+    // Proyectos y actividades desde Sheets (multiproyecto). Va antes que syncFromSheets
+    // para que los reportes se apliquen sobre el Gantt ya cargado.
+    setTimeout(cargarProyectosDesdeSheets, 1500);
     setTimeout(()=>syncFromSheets(true), 4000);
     setInterval(()=>{ if(navigator.onLine) syncFromSheets(true); }, 5*60*1000);
   }
@@ -2221,7 +2231,9 @@ if (!Array.isArray(PROYECTOS) || !PROYECTOS.length) {
 // (UTC-4) cae el 9 de junio a las 20:00 — todo el plan salía corrido un día hacia atrás.
 // Con año/mes/día por separado se interpreta en hora local y el día 1 es el 10 de junio,
 // que es lo que dice la matriz del cliente. Debe coincidir con PROYECTO_INICIO_GANTT (Fechas.gs).
-const PROYECTO_INICIO = new Date(2026, 5, 10); // 10-jun-2026
+// Pasa a 'let' porque cada proyecto tiene su propia fecha de inicio: cargarGanttDesdeSheets
+// la actualiza con la que devuelve el servidor. El valor de aquí es solo el de arranque.
+let PROYECTO_INICIO = new Date(2026, 5, 10); // 10-jun-2026
 const GANTT_ACTS = [
   {id:'1.1', desc:'Cambio de equipo de iluminacion Apagado (IP Según recinto-Modelo según corresponda)', zona:'Jaula generador (Exterior)', unidad:'uni', cantidad:1.0, avFijo:0, equipo:'Persona 1', horas:2.0, ini:24, fin:25},
   {id:'1.2', desc:'Regularizar circuito en CAG (canalización + Cableado)', zona:'Jaula generador (Exterior)', unidad:'ml', cantidad:30.0, avFijo:0, equipo:'Persona 2', horas:4.0, ini:24, fin:25},
@@ -2835,17 +2847,19 @@ function diaLaboral(n) {
 }
 
 function avanceRealAct(desc, avFijo, manual) {
-  // Un % editado manualmente en la Carta Gantt tiene prioridad absoluta
+  // Un % editado manualmente en la Carta Gantt tiene prioridad absoluta.
   if (manual && avFijo !== undefined) return avFijo;
-  const kw = desc.toLowerCase().replace(/[áéíóúñ]/g, c => ({á:'a',é:'e',í:'i',ó:'o',ú:'u',ñ:'n'}[c]||c));
-  // Solo reportes aprobados contribuyen al avance
-  const aprobados = localReports.filter(r => r.estado === 'aprobado');
-  const matches = aprobados.filter(r => {
-    const a = (r.Actividad||'').toLowerCase().replace(/[áéíóúñ]/g, c => ({á:'a',é:'e',í:'i',ó:'o',ú:'u',ñ:'n'}[c]||c));
-    return kw.split(' ').filter(w=>w.length>4).some(w => a.includes(w));
-  });
-  // Reportes aprobados tienen prioridad sobre el valor importado del Excel
-  if (matches.length) return Math.round(matches.reduce((s,r)=>s+parseFloat(r.Avance||0),0)/matches.length);
+
+  // El avance viene de Carta_Gantt (avFijo), que es la fuente de verdad.
+  //
+  // Aquí había un emparejamiento por palabras: un reporte aprobado se asignaba a una
+  // actividad si CUALQUIER palabra de más de 4 letras coincidía con su descripción. Medido
+  // el 9-ago-2026 sobre los datos reales: un solo reporte casaba con hasta 171 actividades,
+  // y 481 de 598 tomaban el avance de un reporte ajeno en vez del suyo. El avance mostrado
+  // subía a 86% cuando el real era 47%.
+  //
+  // Ya no hace falta: los reportes llegan a la Gantt en el servidor —onFormSubmit al recibir
+  // el formulario, y updateEstado al aprobar— así que avFijo ya los incorpora.
   if (avFijo !== undefined) return avFijo;
   return -1;
 }
@@ -2910,11 +2924,103 @@ function guardarOverrideGantt(a){
   sincronizarGantt(a);
 }
 
+// ══════════════════════════════════════════════════════════
+// MULTIPROYECTO — carga desde Sheets
+// Antes, la lista de proyectos y las 598 actividades estaban incrustadas en este archivo:
+// cargar un proyecto nuevo obligaba a editar el código. Ahora se leen del servidor
+// (getProyectos / getGantt) y lo de aquí queda solo como respaldo sin conexión.
+// ══════════════════════════════════════════════════════════
+const PROY_ACTIVO_KEY = 'solmit_proyecto_activo';
+let proyectoActivo = localStorage.getItem(PROY_ACTIVO_KEY) || '';
+
 // Carta_Gantt guarda en su columna B el NOMBRE del proyecto (así lo escribe
-// cargarMatrizProyecto), no el ID. GANTT_ACTS corresponde a un único proyecto activo.
+// cargarMatrizProyecto), no el ID.
 function proyectoActivoNombre(){
+  if (proyectoActivo) return proyectoActivo;
   const p = (Array.isArray(PROYECTOS) && PROYECTOS[0]) || PROYECTOS_DEFAULT[0];
   return (p && p.nombre) || '';
+}
+
+function cargarProyectosDesdeSheets(){
+  if(!webAppUrl) return;
+  sendJSONP(webAppUrl + '?action=getProyectos',
+    (r) => {
+      if(!r || r.status !== 'ok' || !Array.isArray(r.data) || !r.data.length) return;
+      PROYECTOS = r.data.map(p => ({
+        id: p.id, nombre: p.nombre, cliente: p.cliente,
+        inicio: p.inicio, fin: p.fin, estado: p.estado,
+      }));
+      localStorage.setItem(PROJ_KEY, JSON.stringify(PROYECTOS)); // caché de UI
+      if(!proyectoActivo || !PROYECTOS.some(p => p.nombre === proyectoActivo)){
+        proyectoActivo = PROYECTOS[0].nombre;
+        localStorage.setItem(PROY_ACTIVO_KEY, proyectoActivo);
+      }
+      renderSelectorProyecto();
+      poblarSelectoresProy();
+      cargarGanttDesdeSheets(proyectoActivo);
+    },
+    () => { /* sin conexión: se sigue con lo cacheado */ }
+  );
+}
+
+function cargarGanttDesdeSheets(nombre){
+  if(!webAppUrl || !nombre) return;
+  sendJSONP(webAppUrl + '?action=getGantt&proyecto=' + encodeURIComponent(nombre),
+    (r) => {
+      if(!r || r.status !== 'ok' || !Array.isArray(r.data) || !r.data.length){
+        toast('⚠️ Sin actividades para "' + nombre + '" — se mantienen las actuales','err');
+        return;
+      }
+      // Cada proyecto tiene su propio inicio; de él dependen los días laborales del Gantt.
+      if(r.inicio){
+        const p = String(r.inicio).split('-').map(Number);
+        if(p.length === 3) PROYECTO_INICIO = new Date(p[0], p[1]-1, p[2]);
+      }
+      // Se sustituye el CONTENIDO del array, no el array: hay 19 funciones que lo referencian.
+      GANTT_ACTS.length = 0;
+      r.data.forEach(a => GANTT_ACTS.push({
+        id:       a.id,
+        desc:     a.desc,
+        zona:     a.zona || '',
+        unidad:   a.unidad || '',
+        cantidad: a.cantidad || 0,
+        avFijo:   a.avFijo || 0,
+        equipo:   a.equipo || 'Sin Asignar',
+        horas:    a.horas || 0,
+        ini:      a.ini || 1,
+        fin:      a.fin || 1,
+        _idActividad: a.id_actividad,
+      }));
+      cargarOverridesGantt();   // reaplicar ediciones manuales locales
+      actualizarActividades();
+      refrescarTrasEdicionGantt();
+      // Redibuja la escala temporal y el subtítulo: dependen del inicio del proyecto,
+      // que acaba de cambiar. Sin esto el encabezado se queda con el proyecto anterior.
+      if (typeof renderGanttHeader === 'function') renderGanttHeader();
+      const el = document.getElementById('gantt-origen');
+      if(el) el.textContent = GANTT_ACTS.length + ' actividades · desde Google Sheets';
+    },
+    () => toast('⚠️ Sin conexión: se usan las actividades guardadas','err')
+  );
+}
+
+function renderSelectorProyecto(){
+  const sel = document.getElementById('sel-proyecto');
+  if(!sel) return;
+  sel.innerHTML = PROYECTOS.map(p =>
+    '<option value="' + escHTML(p.nombre) + '"' + (p.nombre === proyectoActivo ? ' selected' : '') + '>' +
+    escHTML(p.nombre) + '</option>').join('');
+  // Con un solo proyecto el selector no aporta nada.
+  sel.style.display = PROYECTOS.length > 1 ? '' : 'none';
+}
+
+function cambiarProyecto(nombre){
+  if(!nombre || nombre === proyectoActivo) return;
+  proyectoActivo = nombre;
+  localStorage.setItem(PROY_ACTIVO_KEY, nombre);
+  toast('Cargando "' + nombre + '"…','ok');
+  cargarGanttDesdeSheets(nombre);
+  syncFromSheets(true);
 }
 
 // Persiste la edición manual de una actividad en Carta_Gantt.
@@ -3052,7 +3158,8 @@ function renderGanttHeader() {
   // Actualizar subtítulo con rango real de meses
   const sub = document.querySelector('.gantt-sub');
   if (sub && labels.length >= 2) {
-    sub.textContent = `SODIMAC Copiapó 739 · Planificado vs. real · ${labels[0].mes}–${labels[labels.length-1].mes} ${finProyecto.getFullYear()}`;
+    // El nombre del proyecto ya no va fijo: se toma del proyecto activo (multiproyecto).
+    sub.textContent = `${proyectoActivoNombre()} · Planificado vs. real · ${labels[0].mes}–${labels[labels.length-1].mes} ${finProyecto.getFullYear()}`;
   }
 }
 
